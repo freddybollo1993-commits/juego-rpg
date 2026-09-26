@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>RPG Medieval de Supervivencia Móvil - Clanes & Terraformación</title>
+  <meta name="description" content="RPG Medieval de Supervivencia Móvil con sistema de adquisición de habilidades tribales, objetos especiales efímeros, mundo regional autónomo y combate contra la entidad extraterrestre.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
+</head>
+<body>
+  <div id="app-container">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Top Status Bar Controls -->
+    <div class="top-controls">
+      <button class="icon-btn" id="btn-toggle-frame" title="Alternar Vista Móvil / Pantalla Completa">📱 Móvil/PC</button>
+      <button class="icon-btn" id="btn-mute" title="Activar/Desactivar Sonido">🔊 Audio</button>
+    </div>
+
+    <!-- On-Screen Mobile Thumb Buttons -->
+    <div class="mobile-touch-bar">
+      <!-- Upper row: Utilities -->
+      <div class="touch-row">
+        <button class="touch-action-btn" id="btn-touch-inv" title="Inventario y Relicario">
+          <span>🎒</span>
+          <span class="label">Mochila</span>
+        </button>
+        <button class="touch-action-btn" id="btn-touch-codex" title="Códice Tribal">
+          <span>📖</span>
+          <span class="label">Códice</span>
+        </button>
+        <button class="touch-action-btn btn-radial" id="btn-touch-radial" title="Rueda Radial">
+          <span>☸️</span>
+          <span class="label">Radial</span>
+        </button>
+      </div>
+
+      <!-- Lower row: Combat & Actions -->
+      <div class="touch-row">
+        <button class="touch-action-btn btn-sacrifice" id="btn-touch-sacrifice" title="Detonar Sacrificio">
+          <span>💥</span>
+          <span class="label">Sacrificio</span>
+        </button>
+        <button class="touch-action-btn" id="btn-touch-sprint" title="Sprint">
+          <span>⚡</span>
+          <span class="label">Correr</span>
+        </button>
+        <button class="touch-action-btn btn-attack" id="btn-touch-attack" title="Atacar / Recolectar">
+          <span>⚔️</span>
+          <span class="label">Golpe</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
