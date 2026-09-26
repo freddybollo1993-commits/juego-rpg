@@ -27,6 +27,8 @@ export class Enemy {
   public attackCooldown: number = 0;
   public isFrozen: boolean = false;
   public freezeTimer: number = 0;
+  public isBurning: boolean = false;
+  public burnTimer: number = 0;
   public isBlinded: boolean = false;
   public blindTimer: number = 0;
 
@@ -109,6 +111,16 @@ export class Enemy {
       this.blindTimer -= delta;
       if (this.blindTimer <= 0) this.isBlinded = false;
       return; // Wanders blinded
+    }
+
+    if (this.isBurning) {
+      this.burnTimer -= delta;
+      this.health -= delta * 8; // Continuous fire burn
+      if (this.burnTimer <= 0) this.isBurning = false;
+      if (this.health <= 0) {
+        this.isAlive = false;
+        return;
+      }
     }
 
     if (this.attackCooldown > 0) {
@@ -199,6 +211,11 @@ export class Enemy {
   public blind(duration: number) {
     this.isBlinded = true;
     this.blindTimer = duration;
+  }
+
+  public ignite(duration: number) {
+    this.isBurning = true;
+    this.burnTimer = duration;
   }
 
   public draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {

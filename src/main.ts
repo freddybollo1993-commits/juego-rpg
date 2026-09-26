@@ -145,6 +145,7 @@ function initApp() {
   bindTouchOrClick('btn-touch-inv', () => game.openInventory());
   bindTouchOrClick('btn-touch-sacrifice', () => game.triggerSacrificeAction());
   bindTouchOrClick('btn-touch-dodge', () => game.triggerDodgeAction());
+  bindTouchOrClick('btn-touch-bow', () => game.triggerBowAction());
 }
 
 window.addEventListener('DOMContentLoaded', initApp);

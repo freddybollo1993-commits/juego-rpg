@@ -178,6 +178,16 @@ canvas#game-canvas {
   box-shadow: 0 0 16px rgba(56, 189, 248, 0.7);
 }
 
+.btn-bow {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.22);
+}
+
+.btn-bow:active {
+  background: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.7);
+}
+
 /* Modals Overlay */
 .modal-overlay {
   position: absolute;

@@ -22,6 +22,8 @@ import { TestWorldModal } from '../ui/TestWorldModal';
 import { assetManager } from './AssetManager';
 import { soundManager } from '../audio/SoundManager';
 import { questSystem } from '../systems/QuestSystem';
+import { Arrow } from '../entities/Arrow';
+import { particleSystem } from '../systems/ParticleSystem';
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -50,6 +52,7 @@ export class Game {
   public npcs: NPC[] = [];
   public enemies: Enemy[] = [];
   public worldObjects: WorldObject[] = [];
+  public arrows: Arrow[] = [];
   public boss: Boss | null = null;
   public bossDefeated: boolean = false;
 
@@ -151,7 +154,9 @@ export class Game {
     this.npcs = [];
     this.enemies = [];
     this.worldObjects = [];
+    this.arrows = [];
     this.boss = null;
+    particleSystem.clear();
 
     // Set audio and weather
     soundManager.setBiomeMusic(reg.biomeType);
@@ -175,6 +180,9 @@ export class Game {
       const tutorialFire = new WorldObject('campfire', 960, 860);
       tutorialFire.isLit = false;
       this.worldObjects.push(tutorialFire);
+
+      // Starter Workbench for Early Crafting
+      this.worldObjects.push(new WorldObject('workbench', 1010, 920));
 
       this.worldObjects.push(new WorldObject('shipwreck_debris', 920, 760));
       this.worldObjects.push(new WorldObject('shipwreck_debris', 1080, 840));
@@ -206,27 +214,36 @@ export class Game {
       this.enemies.push(new Enemy('frost_beast', 1700, 1200));
       this.enemies.push(new Enemy('frost_beast', 1300, 1600));
       this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
+      // Frost Clan Anvil Workstation
+      this.worldObjects.push(new WorldObject('anvil', reg.width / 2 - 90, reg.height / 2 - 20));
     } else if (reg.biomeType === 'forest') {
       this.enemies.push(new Enemy('stalking_wolf', 800, 700));
       this.enemies.push(new Enemy('stalking_wolf', 1600, 800));
       this.enemies.push(new Enemy('stalking_wolf', 1100, 1500));
       this.worldObjects.push(new WorldObject('forage_bush', 900, 1100));
       this.worldObjects.push(new WorldObject('forage_bush', 1500, 600));
+      // Nomad Woodcarving Workbench
+      this.worldObjects.push(new WorldObject('workbench', reg.width / 2 - 90, reg.height / 2 - 20));
     } else if (reg.biomeType === 'swamp') {
       this.enemies.push(new Enemy('swamp_horror', 600, 800));
       this.enemies.push(new Enemy('swamp_horror', 1800, 900));
       this.enemies.push(new Enemy('swamp_horror', 1400, 1400));
       this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
+      // Morgath Alchemical Cauldron
+      this.worldObjects.push(new WorldObject('alchemy_station', reg.width / 2 - 90, reg.height / 2 - 20));
     } else if (reg.biomeType === 'canyon') {
       this.enemies.push(new Enemy('volcanic_scorpion', 700, 700));
       this.enemies.push(new Enemy('volcanic_scorpion', 1600, 700));
       this.enemies.push(new Enemy('volcanic_scorpion', 1200, 1500));
       this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
+      // Sun-Walkers Leather Tanning Station
+      this.worldObjects.push(new WorldObject('tanner', reg.width / 2 - 90, reg.height / 2 - 20));
     } else if (reg.biomeType === 'caverns') {
       this.enemies.push(new Enemy('crystal_stalker', 700, 700));
       this.enemies.push(new Enemy('crystal_stalker', 1700, 800));
       this.enemies.push(new Enemy('crystal_stalker', 1100, 1400));
       this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
+      this.worldObjects.push(new WorldObject('anvil', reg.width / 2 - 90, reg.height / 2 - 20));
     } else if (reg.biomeType === 'alien_core') {
       questSystem.updateObjective('celestial_reckoning', 'enter_core', 1);
       if (!this.bossDefeated) {
@@ -407,6 +424,46 @@ export class Game {
       this.triggerDodgeAction();
     }
 
+    if (this.input.bowPressed) {
+      this.input.bowPressed = false;
+      this.triggerBowAction();
+    }
+
+    // Update Arrows & Arrow Collisions (Fase 2.1)
+    for (let i = this.arrows.length - 1; i >= 0; i--) {
+      const arrow = this.arrows[i];
+      arrow.update(delta, this.enemies, this.boss, (x, y, color) => {
+        particleSystem.spawnSparks(x, y, color, 8);
+        particleSystem.spawnHitBlood(x, y, '#b91c1c', 6);
+      });
+      if (!arrow.isAlive) {
+        this.arrows.splice(i, 1);
+      }
+    }
+
+    // Update Combat & Dash Particle Engine (Fase 2.2)
+    particleSystem.update(delta);
+    if (this.player.isDashing) {
+      particleSystem.spawnDashDust(this.player.x, this.player.y, 1);
+    }
+
+    // Check Bear Trap triggers on enemies (Fase 2.3)
+    for (const obj of this.worldObjects) {
+      if (obj.type === 'bear_trap' && !obj.isDepleted) {
+        for (const enemy of this.enemies) {
+          if (enemy.isAlive && Math.hypot(enemy.x - obj.x, enemy.y - obj.y) <= 22) {
+            obj.isDepleted = true;
+            enemy.takeDamage(35, this.player);
+            enemy.freeze(4.5);
+            soundManager.playArrowImpact();
+            particleSystem.spawnSparks(obj.x, obj.y, '#94a3b8', 12);
+            this.showNotification('¡Una bestia cayó en la Trampa de Mandíbulas!');
+            break;
+          }
+        }
+      }
+    }
+
     // Update Enemies
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
@@ -580,6 +637,22 @@ export class Game {
     return success;
   }
 
+  public triggerBowAction(): boolean {
+    const arrow = this.player.shootBow();
+    if (arrow) {
+      this.arrows.push(arrow);
+      particleSystem.spawnSparks(this.player.x, this.player.y - 6, '#ffd700', 5);
+      const typeName = arrow.type === 'fire' ? 'Fuego' : arrow.type === 'frost' ? 'Escarcha' : 'Sílex';
+      this.showNotification(`¡Flecha de ${typeName} disparada!`);
+      return true;
+    } else if (this.player.vitals.stamina < 8) {
+      this.showNotification('¡Estamina insuficiente para tensar el arco!');
+    } else {
+      this.showNotification('¡Sin flechas disponibles! Fabrica más en el Banco de Trabajo.');
+    }
+    return false;
+  }
+
   private handlePlayerDeath() {
     this.showNotification('💀 Has sucumbido a las inclemencias del mundo. Reviviendo en el campamento...');
     this.player.vitals.health = 80;
@@ -636,12 +709,37 @@ export class Game {
         }
       },
       {
+        id: 'bow',
+        label: 'Disparar Arco',
+        icon: '🏹',
+        color: '#10b981',
+        action: () => {
+          this.triggerBowAction();
+        }
+      },
+      {
         id: 'dodge',
         label: 'Rodar / Esquivar',
         icon: '💨',
         color: '#38bdf8',
         action: () => {
           this.triggerDodgeAction();
+        }
+      },
+      {
+        id: 'trap',
+        label: 'Colocar Trampa',
+        icon: '🪤',
+        color: '#64748b',
+        action: () => {
+          if (this.player.getItemCount('bear_trap') >= 1) {
+            this.player.removeItem('bear_trap', 1);
+            this.worldObjects.push(new WorldObject('bear_trap', this.player.x, this.player.y));
+            soundManager.playCampfire();
+            this.showNotification('¡Colocaste una Trampa de Mandíbulas en el suelo!');
+          } else {
+            this.showNotification('Necesitas una Trampa para Bestias (fabrícala en el banco).');
+          }
         }
       },
       {
@@ -730,39 +828,65 @@ export class Game {
     // 1. Draw Biome Terrain Ground
     this.drawTerrain(this.ctx);
 
-    // 2. Draw World Objects (With Frustum Culling)
-    for (const obj of this.worldObjects) {
-      if (obj.x >= minX && obj.x <= maxX && obj.y >= minY && obj.y <= maxY) {
-        obj.draw(this.ctx, this.cameraX, this.cameraY);
-      }
-    }
-
-    // 3. Draw Chokepoints
+    // 2. Draw Chokepoints (Floor level)
     this.drawChokepoints(this.ctx);
 
-    // 4. Draw NPCs (With Frustum Culling)
+    // 3. Unified Y-Sorted Entity Render Layer (2.5D Depth Occlusion)
+    const renderables: { y: number; draw: () => void }[] = [];
+
+    for (const obj of this.worldObjects) {
+      if (obj.x >= minX && obj.x <= maxX && obj.y >= minY && obj.y <= maxY) {
+        renderables.push({
+          y: obj.y + (obj.type === 'coastal_palm' ? 18 : obj.height / 2),
+          draw: () => obj.draw(this.ctx, this.cameraX, this.cameraY)
+        });
+      }
+    }
+
     for (const npc of this.npcs) {
       if (npc.x >= minX && npc.x <= maxX && npc.y >= minY && npc.y <= maxY) {
-        npc.draw(this.ctx, this.cameraX, this.cameraY);
+        renderables.push({
+          y: npc.y + npc.height / 2,
+          draw: () => npc.draw(this.ctx, this.cameraX, this.cameraY)
+        });
       }
     }
 
-    // 5. Draw Enemies (With Frustum Culling)
     for (const enemy of this.enemies) {
       if (enemy.x >= minX && enemy.x <= maxX && enemy.y >= minY && enemy.y <= maxY) {
-        enemy.draw(this.ctx, this.cameraX, this.cameraY);
+        renderables.push({
+          y: enemy.y + enemy.height / 2,
+          draw: () => enemy.draw(this.ctx, this.cameraX, this.cameraY)
+        });
       }
     }
 
-    // 6. Draw Final Boss
     if (this.boss && this.boss.x >= minX && this.boss.x <= maxX && this.boss.y >= minY && this.boss.y <= maxY) {
-      this.boss.draw(this.ctx, this.cameraX, this.cameraY);
+      renderables.push({
+        y: this.boss.y + 40,
+        draw: () => this.boss!.draw(this.ctx, this.cameraX, this.cameraY)
+      });
     }
 
-    // 7. Draw Player
-    this.player.draw(this.ctx, this.cameraX, this.cameraY);
+    renderables.push({
+      y: this.player.y + this.player.height / 2,
+      draw: () => this.player.draw(this.ctx, this.cameraX, this.cameraY)
+    });
 
-    // 8. Darkness Light Mask
+    renderables.sort((a, b) => a.y - b.y);
+    for (const r of renderables) {
+      r.draw();
+    }
+
+    // 4. Draw Ballistic Arrows
+    for (const arrow of this.arrows) {
+      arrow.draw(this.ctx, this.cameraX, this.cameraY);
+    }
+
+    // 5. Draw Particle System
+    particleSystem.draw(this.ctx, this.cameraX, this.cameraY);
+
+    // 6. Darkness Light Mask
     this.drawLightingMask(this.ctx, width, height);
 
     // 9. Weather Particle & Atmospheric Effects

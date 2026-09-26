@@ -1,8 +1,7 @@
-// Player.ts - Player entity, inventory, reliquary, combat, and runic skill management (GDD Sec. 1-10)
-
 import { VitalStatus } from '../systems/SurvivalSystem';
 import { ITEMS_CATALOG, EphemeralArtifact } from '../data/items';
 import { soundManager } from '../audio/SoundManager';
+import { Arrow, ArrowType } from './Arrow';
 
 export interface ActiveEphemeralSlot {
   itemId: string;
@@ -70,10 +69,53 @@ export class Player {
   public dashVx: number = 0;
   public dashVy: number = 0;
   public dashTrail: { x: number; y: number; alpha: number; facing: string }[] = [];
+  // Tactical Bow Ranged Combat (Fase 2.1)
+  public bowCooldown: number = 0;
 
   constructor() {
-    // Initial Prologue Inventory: The Ancestral Rock (GDD Sec. 10.4)
+    // Initial Prologue Inventory: The Ancestral Rock & Hunting Gear
     this.addItem('ancestral_rock', 1);
+    this.addItem('tribal_bow', 1);
+    this.addItem('flint_arrow', 20);
+    this.addItem('fire_arrow', 8);
+    this.addItem('frost_arrow', 8);
+  }
+
+  public shootBow(targetAngle?: number): Arrow | null {
+    if (this.bowCooldown > 0 || this.isDashing || this.vitals.stamina < 8) {
+      return null;
+    }
+
+    // Determine arrow type from inventory (Prioritize elemental)
+    let arrowType: ArrowType | null = null;
+    if (this.getItemCount('fire_arrow') > 0) {
+      arrowType = 'fire';
+      this.removeItem('fire_arrow', 1);
+    } else if (this.getItemCount('frost_arrow') > 0) {
+      arrowType = 'frost';
+      this.removeItem('frost_arrow', 1);
+    } else if (this.getItemCount('flint_arrow') > 0) {
+      arrowType = 'flint';
+      this.removeItem('flint_arrow', 1);
+    } else {
+      return null; // Out of arrows
+    }
+
+    this.vitals.stamina = Math.max(0, this.vitals.stamina - 8);
+    this.bowCooldown = 0.42;
+
+    let angle = 0;
+    if (targetAngle !== undefined) {
+      angle = targetAngle;
+    } else {
+      if (this.facing === 'right') angle = 0;
+      else if (this.facing === 'down') angle = Math.PI / 2;
+      else if (this.facing === 'left') angle = Math.PI;
+      else if (this.facing === 'up') angle = -Math.PI / 2;
+    }
+
+    soundManager.playBowRelease();
+    return new Arrow(this.x, this.y - 6, angle, arrowType);
   }
 
   public dodge(dirX?: number, dirY?: number): boolean {
@@ -164,6 +206,10 @@ export class Player {
     }
     if (this.attackCooldown > 0) {
       this.attackCooldown -= delta;
+    }
+
+    if (this.bowCooldown > 0) {
+      this.bowCooldown -= delta;
     }
 
     // Ephemeral Item Active Tick (GDD Sec. 7.3 & 7.7)
@@ -390,6 +436,10 @@ export class Player {
     return existing ? existing.count : 0;
   }
 
+  public hasItem(itemId: string): boolean {
+    return this.getItemCount(itemId) > 0 || this.reliquary.includes(itemId);
+  }
+
   public useItem(itemId: string): boolean {
     const item = ITEMS_CATALOG[itemId];
     if (!item) return false;
@@ -427,6 +477,21 @@ export class Player {
       this.vitals.toxicity = Math.max(0, this.vitals.toxicity - 15);
       this.removeItem(itemId, 1);
       soundManager.playForage();
+      return true;
+    } else if (itemId === 'antidote_potion') {
+      this.vitals.toxicity = 0;
+      this.removeItem(itemId, 1);
+      soundManager.playForage();
+      return true;
+    } else if (itemId === 'thermal_tincture') {
+      this.vitals.bodyTemp = Math.min(80, this.vitals.bodyTemp + 35);
+      this.removeItem(itemId, 1);
+      soundManager.playForage();
+      return true;
+    } else if (itemId === 'expanded_backpack') {
+      this.maxInventorySlots = 24;
+      this.removeItem(itemId, 1);
+      soundManager.playRunicTuning();
       return true;
     }
 

@@ -41,6 +41,104 @@ export const CRAFTING_RECIPES: CraftingRecipe[] = [
     isUnlocked: true
   },
 
+  // --- Ranged Combat & Tribal Workshop (Fase 2.1 & 2.3) ---
+  {
+    id: 'craft_tribal_bow',
+    outputItemId: 'tribal_bow',
+    outputAmount: 1,
+    ingredients: [
+      { itemId: 'branches', amount: 4 },
+      { itemId: 'ancient_resin', amount: 1 }
+    ],
+    category: 'survival',
+    description: 'Arco Compuesto Tribal: Madera elástica reforzada con resina ancestral.',
+    isUnlocked: true
+  },
+  {
+    id: 'craft_flint_arrows',
+    outputItemId: 'flint_arrow',
+    outputAmount: 10,
+    ingredients: [
+      { itemId: 'branches', amount: 2 },
+      { itemId: 'flint', amount: 2 }
+    ],
+    category: 'survival',
+    description: 'Lote de 10 flechas con punta de sílex afilada.',
+    isUnlocked: true
+  },
+  {
+    id: 'craft_fire_arrows',
+    outputItemId: 'fire_arrow',
+    outputAmount: 5,
+    ingredients: [
+      { itemId: 'flint_arrow', amount: 5 },
+      { itemId: 'volcanic_pyrite', amount: 1 }
+    ],
+    category: 'survival',
+    description: '5 flechas ígneas embebidas en pirita volcánica.',
+    isUnlocked: true
+  },
+  {
+    id: 'craft_frost_arrows',
+    outputItemId: 'frost_arrow',
+    outputAmount: 5,
+    ingredients: [
+      { itemId: 'flint_arrow', amount: 5 },
+      { itemId: 'fossil_ice', amount: 1 }
+    ],
+    category: 'survival',
+    description: '5 flechas criogénicas embebidas en hielo fósil.',
+    isUnlocked: true
+  },
+  {
+    id: 'craft_bear_trap',
+    outputItemId: 'bear_trap',
+    outputAmount: 1,
+    ingredients: [
+      { itemId: 'flint', amount: 2 },
+      { itemId: 'branches', amount: 2 }
+    ],
+    category: 'survival',
+    description: 'Trampa de mandíbulas para inmovilizar depredadores.',
+    isUnlocked: true
+  },
+  {
+    id: 'craft_expanded_backpack',
+    outputItemId: 'expanded_backpack',
+    outputAmount: 1,
+    ingredients: [
+      { itemId: 'alpha_fur', amount: 2 },
+      { itemId: 'ancient_resin', amount: 1 }
+    ],
+    category: 'survival',
+    description: 'Mochila de cuero reforzado: Aumenta la capacidad a 24 ranuras.',
+    isUnlocked: true
+  },
+  {
+    id: 'craft_antidote_potion',
+    outputItemId: 'antidote_potion',
+    outputAmount: 1,
+    ingredients: [
+      { itemId: 'berries', amount: 2 },
+      { itemId: 'phosphor_mud', amount: 1 }
+    ],
+    category: 'survival',
+    description: 'Antídoto de Morgath: Purifica toxinas y veneno de inmediato.',
+    isUnlocked: true
+  },
+  {
+    id: 'craft_thermal_tincture',
+    outputItemId: 'thermal_tincture',
+    outputAmount: 1,
+    ingredients: [
+      { itemId: 'berries', amount: 2 },
+      { itemId: 'eternal_frost_flower', amount: 1 }
+    ],
+    category: 'survival',
+    description: 'Tintura Térmica: Aumenta la temperatura +35° y previene hipotermia.',
+    isUnlocked: true
+  },
+
   // --- Ephemeral Special Objects (Sec. 7.4) ---
   {
     id: 'craft_spectral_lantern',

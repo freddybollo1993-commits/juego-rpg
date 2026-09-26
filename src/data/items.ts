@@ -325,5 +325,79 @@ export const ITEMS_CATALOG: Record<string, BaseItem | EphemeralArtifact> = {
     passiveEffectDesc: 'Camuflaje: enemigos reducen rango de detección a 3m y el jugador es inmune a trampas de lodo.',
     sacrificeName: 'Cortina de Esporas Sombrías',
     sacrificeDesc: 'Emite niebla tóxica que vuelve al jugador 100% invisible durante 12s, rompiendo el combate de inmediato.'
+  },
+
+  // --- Ranged Weapons & Ammunition (Fase 2.1) ---
+  tribal_bow: {
+    id: 'tribal_bow',
+    name: 'Arco Compuesto Tribal',
+    description: 'Arco tallado en madera noble y reforzado con tendones. Permite disparar flechas a larga distancia.',
+    category: 'resource',
+    icon: '🏹',
+    stackable: false
+  },
+  flint_arrow: {
+    id: 'flint_arrow',
+    name: 'Flechas de Sílex',
+    description: 'Proyectiles afilados con punta de pedernal tallado. Causan 25 de daño balístico.',
+    category: 'resource',
+    icon: '🎯',
+    stackable: true,
+    maxStack: 40
+  },
+  fire_arrow: {
+    id: 'fire_arrow',
+    name: 'Flechas Ígneas de Azufre',
+    description: 'Flechas con punta embebida en pirita volcánica. Causan daño de fuego continuo y disipan escudos.',
+    category: 'resource',
+    icon: '🔥',
+    stackable: true,
+    maxStack: 30
+  },
+  frost_arrow: {
+    id: 'frost_arrow',
+    name: 'Flechas Criogénicas de Escarcha',
+    description: 'Flechas impregnadas con hielo fósil de alta montaña. Ralentizan y congelan bestias por 3.5s.',
+    category: 'resource',
+    icon: '❄️',
+    stackable: true,
+    maxStack: 30
+  },
+
+  // --- Specialized Crafting & Survival Tools (Fase 2.3) ---
+  bear_trap: {
+    id: 'bear_trap',
+    name: 'Trampa de Mandíbulas para Bestias',
+    description: 'Cepo mecánico de acero y hueso. Se coloca en el suelo e inmoviliza a cualquier bestia que lo pise.',
+    category: 'survival',
+    icon: '🪤',
+    stackable: true,
+    maxStack: 5
+  },
+  expanded_backpack: {
+    id: 'expanded_backpack',
+    name: 'Mochila Tribal Reforzada',
+    description: 'Mochila de cuero grueso curtido. Aumenta la capacidad de carga permanente a 24 ranuras.',
+    category: 'survival',
+    icon: '🎒',
+    stackable: false
+  },
+  antidote_potion: {
+    id: 'antidote_potion',
+    name: 'Antídoto de Morgath',
+    description: 'Brebaje destilado en caldero alquímico. Purifica al 100% la toxicidad en sangre y veneno.',
+    category: 'survival',
+    icon: '🧪',
+    stackable: true,
+    maxStack: 10
+  },
+  thermal_tincture: {
+    id: 'thermal_tincture',
+    name: 'Tintura Térmica Volcánica',
+    description: 'Tónico caliente que eleva la temperatura corporal +35° y previene la hipotermia durante 3 minutos.',
+    category: 'survival',
+    icon: '🍷',
+    stackable: true,
+    maxStack: 10
   }
 };

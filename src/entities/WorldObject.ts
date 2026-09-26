@@ -4,7 +4,19 @@ import { ITEMS_CATALOG } from '../data/items';
 import { Player } from './Player';
 import { soundManager } from '../audio/SoundManager';
 
-export type WorldObjectType = 'campfire' | 'forage_bush' | 'branch_pile' | 'flint_rock' | 'exotic_node' | 'shipwreck_debris' | 'coastal_palm';
+export type WorldObjectType =
+  | 'campfire'
+  | 'forage_bush'
+  | 'branch_pile'
+  | 'flint_rock'
+  | 'exotic_node'
+  | 'shipwreck_debris'
+  | 'coastal_palm'
+  | 'workbench'
+  | 'anvil'
+  | 'tanner'
+  | 'alchemy_station'
+  | 'bear_trap';
 
 export class WorldObject {
   public id: string;
@@ -71,6 +83,38 @@ export class WorldObject {
         this.height = 38;
         this.dropAmount = 1;
         break;
+      case 'workbench':
+        this.width = 52;
+        this.height = 36;
+        break;
+      case 'anvil':
+        this.width = 42;
+        this.height = 36;
+        break;
+      case 'tanner':
+        this.width = 46;
+        this.height = 46;
+        break;
+      case 'alchemy_station':
+        this.width = 44;
+        this.height = 42;
+        break;
+      case 'bear_trap':
+        this.width = 28;
+        this.height = 28;
+        break;
+    }
+  }
+
+  public get interactionText(): string {
+    switch (this.type) {
+      case 'workbench': return '🛠️ Mesa de Trabajo / Banco Tribal';
+      case 'anvil': return '⚒️ Yunque Primitivo de los Clanes';
+      case 'tanner': return '🪵 Bastidor de Cuero / Curtidor';
+      case 'alchemy_station': return '🧪 Alambique y Caldero Alquímico';
+      case 'bear_trap': return '⚙️ Trampa para Osos y Bestias';
+      case 'campfire': return '🔥 Hoguera';
+      default: return this.type;
     }
   }
 
@@ -82,6 +126,33 @@ export class WorldObject {
 
   public interact(player: Player): string {
     if (this.isDepleted) return 'Agotado.';
+
+    if (this.type === 'workbench') {
+      soundManager.playRunicTuning();
+      return '🛠️ Banco de Trabajo: Puedes forjar Arcos y Flechas desde tu menú de crafteo.';
+    }
+
+    if (this.type === 'anvil') {
+      soundManager.playRunicTuning();
+      return '⚒️ Yunque de los Clanes: Permite forjar Puntas Reforzadas y Munición de Escarcha.';
+    }
+
+    if (this.type === 'tanner') {
+      soundManager.playRunicTuning();
+      return '🪵 Puesto de Curtidor: Permite curtir pieles y confeccionar la Mochila Expandida (+8 ranuras).';
+    }
+
+    if (this.type === 'alchemy_station') {
+      soundManager.playRunicTuning();
+      return '🧪 Caldero Alquímico: Permite destilar Tintura Térmica y Antídotos de Morgath.';
+    }
+
+    if (this.type === 'bear_trap') {
+      this.isDepleted = true;
+      player.addItem('bear_trap', 1);
+      soundManager.playForage();
+      return 'Desarmaste y recogiste la Trampa para Bestias.';
+    }
 
     if (this.type === 'campfire') {
       soundManager.playCampfire();
@@ -278,6 +349,68 @@ export class WorldObject {
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.5;
       ctx.stroke();
+    } else if (this.type === 'workbench') {
+      // Wooden table top
+      ctx.fillStyle = '#6d4c41';
+      ctx.fillRect(screenX - 24, screenY - 10, 48, 18);
+      // Table legs
+      ctx.fillStyle = '#4e342e';
+      ctx.fillRect(screenX - 22, screenY + 8, 6, 12);
+      ctx.fillRect(screenX + 16, screenY + 8, 6, 12);
+      // Tools & bow carving
+      ctx.strokeStyle = '#d4af37';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(screenX, screenY - 2, 10, -0.6, 0.6);
+      ctx.stroke();
+    } else if (this.type === 'anvil') {
+      // Wood stump base
+      ctx.fillStyle = '#5d4037';
+      ctx.beginPath();
+      ctx.ellipse(screenX, screenY + 10, 18, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Iron Anvil
+      ctx.fillStyle = '#374151';
+      ctx.fillRect(screenX - 14, screenY - 12, 28, 14);
+      ctx.fillRect(screenX - 18, screenY - 14, 36, 6);
+      // Hammer on top
+      ctx.fillStyle = '#9ca3af';
+      ctx.fillRect(screenX - 4, screenY - 18, 8, 4);
+    } else if (this.type === 'tanner') {
+      // Wooden Frame
+      ctx.strokeStyle = '#8d6e63';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(screenX - 20, screenY - 20, 40, 40);
+      // Stretched wolf hide
+      ctx.fillStyle = '#b08968';
+      ctx.beginPath();
+      ctx.ellipse(screenX, screenY, 14, 16, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.type === 'alchemy_station') {
+      // Cauldron
+      ctx.fillStyle = '#1f2937';
+      ctx.beginPath();
+      ctx.arc(screenX, screenY + 2, 16, 0, Math.PI * 2);
+      ctx.fill();
+      // Glowing bubbling potion
+      const boil = Math.sin(Date.now() * 0.008) * 2;
+      ctx.fillStyle = '#70e000';
+      ctx.beginPath();
+      ctx.arc(screenX, screenY - 4, 10 + boil, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.type === 'bear_trap') {
+      // Iron jaws
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
+      ctx.stroke();
+      // Teeth
+      ctx.fillStyle = '#94a3b8';
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        ctx.fillRect(screenX + Math.cos(a) * 10 - 2, screenY + Math.sin(a) * 10 - 2, 4, 4);
+      }
     }
 
     ctx.restore();

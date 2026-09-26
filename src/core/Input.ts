@@ -6,6 +6,7 @@ export class Input {
   public isRunning: boolean = false;
   public attackPressed: boolean = false;
   public dodgePressed: boolean = false;
+  public bowPressed: boolean = false;
   public interactPressed: boolean = false;
   public codexPressed: boolean = false;
   public inventoryPressed: boolean = false;
@@ -35,6 +36,7 @@ export class Input {
 
       if (e.code === 'KeyE') this.interactPressed = true;
       if (e.code === 'KeyJ' || e.code === 'KeyF') this.attackPressed = true;
+      if (e.code === 'KeyB' || e.code === 'KeyL') this.bowPressed = true;
       if (e.code === 'Space' || e.code === 'KeyK') this.dodgePressed = true;
       if (e.code === 'KeyC') this.codexPressed = true;
       if (e.code === 'KeyI') this.inventoryPressed = true;
@@ -49,6 +51,7 @@ export class Input {
 
       if (e.code === 'KeyE') this.interactPressed = false;
       if (e.code === 'KeyJ' || e.code === 'KeyF') this.attackPressed = false;
+      if (e.code === 'KeyB' || e.code === 'KeyL') this.bowPressed = false;
       if (e.code === 'Space' || e.code === 'KeyK') this.dodgePressed = false;
       if (e.code === 'KeyC') this.codexPressed = false;
       if (e.code === 'KeyI') this.inventoryPressed = false;
