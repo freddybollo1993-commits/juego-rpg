@@ -20,6 +20,11 @@ function initApp() {
   const game = new Game(canvas);
   game.start();
 
+  // Register PWA Service Worker for mobile play
+  if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+
   // Audio unmute on first gesture
   const unmuteSound = () => {
     soundManager.init();
