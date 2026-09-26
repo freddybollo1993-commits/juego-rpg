@@ -2,9 +2,14 @@
 
 Videojuego de supervivencia y acción RPG móvil basado en el Documento de Diseño de Juego (GDD v1.0).
 
-## 🚀 Inicio Rápido
+## 🌐 Beta Pública en Vivo
+- **Enlace de Producción (Vercel)**: [https://juego-rpg-eight.vercel.app](https://juego-rpg-eight.vercel.app)
+- **Repositorio Oficial de GitHub**: [https://github.com/freddybollo1993-commits/juego-rpg](https://github.com/freddybollo1993-commits/juego-rpg)
+- **Panel de Control de Vercel**: [https://vercel.com/freddy-loyo/juego-rpg](https://vercel.com/freddy-loyo/juego-rpg)
 
-Para ejecutar el juego localmente:
+Cualquier cambio que se suba a la rama `main` de GitHub se desplegará automáticamente en Vercel en cuestión de segundos.
+
+## 🚀 Inicio Rápido Local
 
 ```powershell
 $env:PATH = "C:\Program Files\nodejs;" + $env:PATH
