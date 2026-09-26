@@ -5,6 +5,7 @@ export class Input {
   public moveY: number = 0;
   public isRunning: boolean = false;
   public attackPressed: boolean = false;
+  public dodgePressed: boolean = false;
   public interactPressed: boolean = false;
   public codexPressed: boolean = false;
   public inventoryPressed: boolean = false;
@@ -33,7 +34,8 @@ export class Input {
       this.updateKeyboardMovement();
 
       if (e.code === 'KeyE') this.interactPressed = true;
-      if (e.code === 'Space' || e.code === 'KeyJ') this.attackPressed = true;
+      if (e.code === 'KeyJ' || e.code === 'KeyF') this.attackPressed = true;
+      if (e.code === 'Space' || e.code === 'KeyK') this.dodgePressed = true;
       if (e.code === 'KeyC') this.codexPressed = true;
       if (e.code === 'KeyI') this.inventoryPressed = true;
       if (e.code === 'KeyR') this.sacrificePressed = true;
@@ -46,7 +48,8 @@ export class Input {
       this.updateKeyboardMovement();
 
       if (e.code === 'KeyE') this.interactPressed = false;
-      if (e.code === 'Space' || e.code === 'KeyJ') this.attackPressed = false;
+      if (e.code === 'KeyJ' || e.code === 'KeyF') this.attackPressed = false;
+      if (e.code === 'Space' || e.code === 'KeyK') this.dodgePressed = false;
       if (e.code === 'KeyC') this.codexPressed = false;
       if (e.code === 'KeyI') this.inventoryPressed = false;
       if (e.code === 'KeyR') this.sacrificePressed = false;
@@ -55,7 +58,11 @@ export class Input {
     });
   }
 
-  private updateKeyboardMovement() {
+  public update() {
+    this.updateKeyboardMovement();
+  }
+
+  public updateKeyboardMovement() {
     let x = 0;
     let y = 0;
 

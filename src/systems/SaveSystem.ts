@@ -1,7 +1,7 @@
-// SaveSystem.ts - Pick-and-Play LocalStorage Persistence (GDD Sec. 8.5)
-
 import { Player } from '../entities/Player';
 import { TRIBES_DATA } from '../data/tribes';
+import { questSystem, Quest } from './QuestSystem';
+import LZString from 'lz-string';
 
 export interface GameSaveData {
   version: number;
@@ -40,6 +40,10 @@ export interface GameSaveData {
     resonatorDelivered: boolean;
   }>;
   bossDefeated: boolean;
+  quests?: {
+    quests: Quest[];
+    activeQuestId: string;
+  };
 }
 
 const SAVE_KEY = 'juego_rpg_medieval_save_v1';
@@ -75,10 +79,13 @@ export class SaveSystem {
           unlockedFourthSkillSlot: player.unlockedFourthSkillSlot
         },
         tribes: tribesState,
-        bossDefeated
+        bossDefeated,
+        quests: questSystem.serialize()
       };
 
-      localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+      const jsonStr = JSON.stringify(saveData);
+      const compressed = LZString.compressToUTF16(jsonStr);
+      localStorage.setItem(SAVE_KEY, compressed);
       return true;
     } catch {
       return false;
@@ -89,9 +96,45 @@ export class SaveSystem {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return null;
-      return JSON.parse(raw) as GameSaveData;
+      const trimmed = raw.trim();
+      let data: GameSaveData | null = null;
+      if (trimmed.startsWith('{')) {
+        data = JSON.parse(trimmed) as GameSaveData;
+      } else {
+        const decompressed = LZString.decompressFromUTF16(raw);
+        if (!decompressed) return null;
+        data = JSON.parse(decompressed) as GameSaveData;
+      }
+      if (data && data.quests) {
+        questSystem.deserialize(data.quests);
+      }
+      return data;
     } catch {
       return null;
+    }
+  }
+
+  public static exportSaveCode(): string | null {
+    try {
+      const data = this.load();
+      if (!data) return null;
+      return LZString.compressToBase64(JSON.stringify(data));
+    } catch {
+      return null;
+    }
+  }
+
+  public static importSaveCode(code: string): boolean {
+    try {
+      const decompressed = LZString.decompressFromBase64(code.trim());
+      if (!decompressed) return false;
+      const parsed = JSON.parse(decompressed) as GameSaveData;
+      if (!parsed || !parsed.player || !parsed.player.vitals) return false;
+      const compressed = LZString.compressToUTF16(decompressed);
+      localStorage.setItem(SAVE_KEY, compressed);
+      return true;
+    } catch {
+      return false;
     }
   }
 

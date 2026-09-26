@@ -2,7 +2,7 @@
 
 import { Player } from '../entities/Player';
 import { NPC } from '../entities/NPC';
-import { Enemy, EnemyType } from '../entities/Enemy';
+import { Enemy } from '../entities/Enemy';
 import { Boss, BossPhase } from '../entities/Boss';
 import { WorldObject } from '../entities/WorldObject';
 import { REGIONS_DATA, RegionData, ChokepointConnection } from '../data/regions';
@@ -18,7 +18,10 @@ import { DialogueModal } from '../ui/DialogueModal';
 import { ChokepointScreen } from '../ui/ChokepointScreen';
 import { EndingModal } from '../ui/EndingModal';
 import { RadialMenu, RadialOption } from '../ui/RadialMenu';
+import { TestWorldModal } from '../ui/TestWorldModal';
+import { assetManager } from './AssetManager';
 import { soundManager } from '../audio/SoundManager';
+import { questSystem } from '../systems/QuestSystem';
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -40,6 +43,7 @@ export class Game {
   public chokepointScreen: ChokepointScreen;
   public endingModal: EndingModal;
   public radialMenu: RadialMenu;
+  public testWorldModal: TestWorldModal;
 
   // Active Regional World
   public currentRegion: RegionData;
@@ -76,6 +80,10 @@ export class Game {
     this.chokepointScreen = new ChokepointScreen();
     this.endingModal = new EndingModal();
     this.radialMenu = new RadialMenu();
+    this.testWorldModal = new TestWorldModal(this);
+
+    // Preload concept art assets
+    assetManager.preloadAll();
 
     // Default start region: Tutorial Beach (GDD Sec. 10.4)
     this.currentRegion = REGIONS_DATA['beach'];
@@ -88,6 +96,16 @@ export class Game {
 
     // Setup HUD callbacks
     this.setupHudEvents();
+
+    // Setup Quest System notifications
+    questSystem.onQuestUpdated = (quest, obj) => {
+      if (obj && obj.isCompleted) {
+        this.showNotification(`📜 ¡Objetivo cumplido! ${obj.description}`);
+      }
+      if (quest.isCompleted) {
+        this.showNotification(`🏆 ¡Misión Completada: ${quest.title}!`);
+      }
+    };
 
     // Auto-save on page exit
     window.addEventListener('beforeunload', () => {
@@ -148,55 +166,69 @@ export class Game {
     // Spawn Tribe Chief if region has one
     if (reg.tribeId && TRIBES_DATA[reg.tribeId]) {
       this.npcs.push(new NPC(reg.tribeId, reg.width / 2 - 80, reg.height / 2 - 60));
-      // Tribal Sacred Totem / Campfire next to Chief
       this.worldObjects.push(new WorldObject('campfire', reg.width / 2 - 20, reg.height / 2 - 50));
     }
 
     // Spawn Region-specific Objects & Enemies
     if (reg.biomeType === 'beach') {
-      // Tutorial beach elements (GDD Sec. 10.4)
-      this.worldObjects.push(new WorldObject('shipwreck_debris', 350, 750));
-      this.worldObjects.push(new WorldObject('branch_pile', 450, 720));
-      this.worldObjects.push(new WorldObject('flint_rock', 520, 800));
-      this.worldObjects.push(new WorldObject('forage_bush', 600, 700));
-      // First unlit campfire for tutorial survival
-      const tutorialFire = new WorldObject('campfire', 480, 850);
+      // Primary Landing Site (Surrounding Player Spawn at 1000, 800)
+      const tutorialFire = new WorldObject('campfire', 960, 860);
       tutorialFire.isLit = false;
       this.worldObjects.push(tutorialFire);
+
+      this.worldObjects.push(new WorldObject('shipwreck_debris', 920, 760));
+      this.worldObjects.push(new WorldObject('shipwreck_debris', 1080, 840));
+      this.worldObjects.push(new WorldObject('shipwreck_debris', 850, 890));
+
+      this.worldObjects.push(new WorldObject('coastal_palm', 900, 720));
+      this.worldObjects.push(new WorldObject('coastal_palm', 1120, 740));
+      this.worldObjects.push(new WorldObject('coastal_palm', 1040, 920));
+      this.worldObjects.push(new WorldObject('coastal_palm', 780, 840));
+
+      this.worldObjects.push(new WorldObject('branch_pile', 980, 750));
+      this.worldObjects.push(new WorldObject('branch_pile', 1050, 880));
+
+      this.worldObjects.push(new WorldObject('flint_rock', 1020, 820));
+      this.worldObjects.push(new WorldObject('flint_rock', 930, 880));
+
+      this.worldObjects.push(new WorldObject('forage_bush', 1100, 790));
+      this.worldObjects.push(new WorldObject('forage_bush', 870, 800));
+
+      // Additional Wreckage & Vegetation Spread Across Beach
+      this.worldObjects.push(new WorldObject('shipwreck_debris', 350, 750));
+      this.worldObjects.push(new WorldObject('shipwreck_debris', 1450, 650));
+      this.worldObjects.push(new WorldObject('coastal_palm', 450, 600));
+      this.worldObjects.push(new WorldObject('coastal_palm', 1350, 950));
+      this.worldObjects.push(new WorldObject('forage_bush', 600, 700));
+      this.worldObjects.push(new WorldObject('forage_bush', 1500, 800));
     } else if (reg.biomeType === 'frost') {
-      // Frost Plateau enemies & hazards
       this.enemies.push(new Enemy('frost_beast', 600, 500));
       this.enemies.push(new Enemy('frost_beast', 1700, 1200));
       this.enemies.push(new Enemy('frost_beast', 1300, 1600));
-      // Campfire outposts
       this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
     } else if (reg.biomeType === 'forest') {
-      // Taiga wolves
       this.enemies.push(new Enemy('stalking_wolf', 800, 700));
       this.enemies.push(new Enemy('stalking_wolf', 1600, 800));
       this.enemies.push(new Enemy('stalking_wolf', 1100, 1500));
       this.worldObjects.push(new WorldObject('forage_bush', 900, 1100));
       this.worldObjects.push(new WorldObject('forage_bush', 1500, 600));
     } else if (reg.biomeType === 'swamp') {
-      // Swamp Horrors
       this.enemies.push(new Enemy('swamp_horror', 600, 800));
       this.enemies.push(new Enemy('swamp_horror', 1800, 900));
       this.enemies.push(new Enemy('swamp_horror', 1400, 1400));
       this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
     } else if (reg.biomeType === 'canyon') {
-      // Volcanic Scorpions
       this.enemies.push(new Enemy('volcanic_scorpion', 700, 700));
       this.enemies.push(new Enemy('volcanic_scorpion', 1600, 700));
       this.enemies.push(new Enemy('volcanic_scorpion', 1200, 1500));
       this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
     } else if (reg.biomeType === 'caverns') {
-      // Crystal Stalkers
       this.enemies.push(new Enemy('crystal_stalker', 700, 700));
       this.enemies.push(new Enemy('crystal_stalker', 1700, 800));
       this.enemies.push(new Enemy('crystal_stalker', 1100, 1400));
       this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
     } else if (reg.biomeType === 'alien_core') {
-      // Arena del Clímax: Boss "El Heraldo de las Estrellas"
+      questSystem.updateObjective('celestial_reckoning', 'enter_core', 1);
       if (!this.bossDefeated) {
         this.boss = new Boss(reg.width / 2, reg.height / 2 - 120);
         this.enemies.push(new Enemy('alien_drone', reg.width / 2 - 140, reg.height / 2));
@@ -205,28 +237,19 @@ export class Game {
       this.worldObjects.push(new WorldObject('campfire', reg.width / 2, reg.height - 180));
     }
 
-    // Spawn exotic material nodes
     for (const node of reg.exoticMaterialSpawns) {
       this.worldObjects.push(new WorldObject('exotic_node', node.x, node.y, node.itemId));
     }
 
-    // Show region arrival notification
     this.showNotification(`Has entrado a: ${reg.name}`);
   }
 
   private setupHudEvents() {
-    this.hud.onSacrificeClick = () => {
-      this.triggerSacrificeAction();
-    };
-    this.hud.onCodexClick = () => {
-      this.openCodex();
-    };
-    this.hud.onInventoryClick = () => {
-      this.openInventory();
-    };
-    this.hud.onRadialToggle = () => {
-      this.openRadialMenu();
-    };
+    this.hud.onSacrificeClick = () => this.triggerSacrificeAction();
+    this.hud.onCodexClick = () => this.openCodex();
+    this.hud.onInventoryClick = () => this.openInventory();
+    this.hud.onRadialToggle = () => this.openRadialMenu();
+    this.hud.onTestWorldToggle = () => this.openTestWorld();
   }
 
   public start() {
@@ -250,9 +273,10 @@ export class Game {
   private update(delta: number) {
     if (this.chokepointScreen.isActive()) return;
 
+    this.input.update();
     soundManager.init();
 
-    // 1. Check Modals & UI inputs
+    // Check Modals & UI inputs
     if (this.input.codexPressed) {
       this.input.codexPressed = false;
       this.openCodex();
@@ -270,24 +294,38 @@ export class Game {
       this.openRadialMenu();
     }
 
-    // Check modal open states
-    if (this.codexModal.isOpen() || this.inventoryModal.isOpen() || this.dialogueModal.isOpen() || this.endingModal.isOpen() || this.radialMenu.isOpen()) {
+    if (
+      this.codexModal.isOpen() ||
+      this.inventoryModal.isOpen() ||
+      this.dialogueModal.isOpen() ||
+      this.endingModal.isOpen() ||
+      this.radialMenu.isOpen() ||
+      this.testWorldModal.isOpen()
+    ) {
       return; // Pause world updates during modal interactions
     }
 
-    // 2. Player Movement & Stamina Mechanics
+    // DevTools / Sandbox overrides
+    if (this.testWorldModal.godMode) {
+      this.player.vitals.health = 100;
+    }
+    if (this.testWorldModal.infiniteStamina) {
+      this.player.vitals.stamina = 100;
+    }
+
+    // Player Movement
     let speed = this.player.speed;
     let isMoving = this.input.moveX !== 0 || this.input.moveY !== 0;
 
-    // Running / Sprinting
-    if (this.input.isRunning && isMoving && this.player.vitals.stamina > 5) {
+    if (this.input.isRunning && isMoving && (this.player.vitals.stamina > 5 || this.testWorldModal.infiniteStamina)) {
       speed *= 1.5;
-      let staminaCost = 14 * delta;
-      // Canopy Stride tribal passive (-30% stamina cost when running)
-      if (this.player.hasEquippedAbility('canopy_stride') && this.player.canopyStrideActive) {
-        staminaCost *= 0.7;
+      if (!this.testWorldModal.infiniteStamina) {
+        let staminaCost = 14 * delta;
+        if (this.player.hasEquippedAbility('canopy_stride') && this.player.canopyStrideActive) {
+          staminaCost *= 0.7;
+        }
+        this.player.vitals.stamina = Math.max(0, this.player.vitals.stamina - staminaCost);
       }
-      this.player.vitals.stamina = Math.max(0, this.player.vitals.stamina - staminaCost);
     }
 
     this.player.vx = this.input.moveX * speed;
@@ -299,19 +337,16 @@ export class Game {
       } else {
         this.player.facing = this.input.moveY > 0 ? 'down' : 'up';
       }
-      // Audio footstep
       if (Math.random() < 0.05) {
         soundManager.playFootstep(this.currentRegion.biomeType === 'frost' ? 'snow' : this.currentRegion.biomeType === 'swamp' ? 'mud' : 'dirt');
       }
     }
 
     this.player.update(delta);
-
-    // Keep player in bounds
     this.player.x = Math.max(20, Math.min(this.currentRegion.width - 20, this.player.x));
     this.player.y = Math.max(20, Math.min(this.currentRegion.height - 20, this.player.y));
 
-    // 3. Proximity Checks & Interaction Prompts
+    // Proximity Checks & Prompts
     this.interactionPrompt = null;
     this.nearbyInteractable = null;
 
@@ -332,7 +367,6 @@ export class Game {
       }
     }
 
-    // Check NPCs
     for (const npc of this.npcs) {
       if (npc.isNearPlayer(this.player.x, this.player.y)) {
         this.interactionPrompt = `[E] Hablar con ${npc.name}`;
@@ -340,7 +374,6 @@ export class Game {
       }
     }
 
-    // Check Chokepoints (Regional Transitions)
     for (const cp of this.currentRegion.chokepoints) {
       if (
         this.player.x >= cp.x - cp.width / 2 &&
@@ -348,25 +381,20 @@ export class Game {
         this.player.y >= cp.y - cp.height / 2 &&
         this.player.y <= cp.y + cp.height / 2
       ) {
-        // Alien core gate requirement check (GDD Sec. 9.2)
-        if (cp.targetRegionId === 'alien_core') {
-          if (!this.player.getItemCount('alien_translator_device')) {
-            this.interactionPrompt = '⚠️ Barrera Alienígena Impenetrable (Requiere Dispositivo de Traducción)';
-            continue;
-          }
+        if (cp.targetRegionId === 'alien_core' && !this.player.getItemCount('alien_translator_device')) {
+          this.interactionPrompt = '⚠️ Barrera Alienígena Impenetrable (Requiere Dispositivo de Traducción)';
+          continue;
         }
         this.interactionPrompt = `[E] Viajar a: ${cp.name}`;
         this.nearbyInteractable = { type: 'chokepoint', target: cp };
       }
     }
 
-    // Handle Interaction Keypress
     if (this.input.interactPressed && this.nearbyInteractable) {
       this.input.interactPressed = false;
       this.performInteraction(this.nearbyInteractable);
     }
 
-    // 4. Combat Updates (Player Attack & Enemy AI)
     if (this.input.attackPressed) {
       this.input.attackPressed = false;
       if (this.player.attack()) {
@@ -374,17 +402,25 @@ export class Game {
       }
     }
 
+    if (this.input.dodgePressed) {
+      this.input.dodgePressed = false;
+      this.triggerDodgeAction();
+    }
+
     // Update Enemies
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
       enemy.update(this.player, delta);
       if (!enemy.isAlive) {
-        // Track trial kill progression if relevant
         if (this.currentRegion.tribeId) {
           const tribe = TRIBES_DATA[this.currentRegion.tribeId];
           if (tribe && !tribe.trial.completed) {
             tribe.trial.currentCount = Math.min(tribe.trial.targetCount, tribe.trial.currentCount + 1);
             this.showNotification(`¡Progreso de Prueba Tribal! (${tribe.trial.currentCount}/${tribe.trial.targetCount})`);
+            if (tribe.trial.currentCount >= tribe.trial.targetCount) {
+              tribe.trial.completed = true;
+              questSystem.updateObjective('tribal_initiation', 'complete_trial', 1);
+            }
           }
         }
         this.enemies.splice(i, 1);
@@ -394,7 +430,6 @@ export class Game {
     // Update Final Boss
     if (this.boss && this.boss.isAlive) {
       this.boss.update(this.player, delta, (newPhase: BossPhase) => {
-        // Change weather during boss terraforming phases (GDD Sec. 9.3)
         if (newPhase === 'cryogenic') {
           this.weatherSystem.setWeather('blizzard');
           this.showNotification('¡El coloso activa la FASE CRIOGÉNICA! (Ventisca Ártica)');
@@ -412,6 +447,7 @@ export class Game {
 
       if (!this.boss.isAlive && !this.bossDefeated) {
         this.bossDefeated = true;
+        questSystem.updateObjective('celestial_reckoning', 'defeat_herald', 1);
         this.endingModal.show((choice) => {
           this.showNotification(`Has elegido: ${choice === 'dismantle' ? 'Desmantelar' : 'Integrar'}. ¡Mundo Pacificado!`);
           this.weatherSystem.setWeather('clear');
@@ -419,28 +455,26 @@ export class Game {
       }
     }
 
-    // 5. Survival System Tick
+    // Survival Tick
     this.survivalSystem.update(this.player, this.currentRegion, isNearCampfire, false, delta);
 
-    // Check Player Death
-    if (this.player.vitals.health <= 0) {
+    if (this.player.vitals.health <= 0 && !this.testWorldModal.godMode) {
       this.handlePlayerDeath();
     }
 
-    // 6. Camera Follow
+    // Camera Smooth Follow
     const targetCamX = this.player.x - this.canvas.width / 2;
     const targetCamY = this.player.y - this.canvas.height / 2;
     this.cameraX += (targetCamX - this.cameraX) * 0.1;
     this.cameraY += (targetCamY - this.cameraY) * 0.1;
 
-    // 7. Auto-Save every 20 seconds
+    // Auto-Save
     this.autoSaveTimer += delta;
     if (this.autoSaveTimer >= 20) {
       this.autoSaveTimer = 0;
       SaveSystem.save(this.player, this.currentRegion.id, this.bossDefeated);
     }
 
-    // Notification timer
     if (this.notificationTimer > 0) {
       this.notificationTimer -= delta;
       if (this.notificationTimer <= 0) {
@@ -453,20 +487,18 @@ export class Game {
     const range = 52;
     const dmg = this.player.getMeleeDamage();
 
-    // Damage enemies in range
     for (const enemy of this.enemies) {
       const dx = enemy.x - this.player.x;
       const dy = enemy.y - this.player.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= range) {
+      if (dx * dx + dy * dy <= range * range) {
         enemy.takeDamage(dmg, this.player);
       }
     }
 
-    // Damage boss in range
     if (this.boss && this.boss.isAlive) {
       const dx = this.boss.x - this.player.x;
       const dy = this.boss.y - this.player.y;
-      if (Math.sqrt(dx * dx + dy * dy) <= range + 40) {
+      if (dx * dx + dy * dy <= (range + 40) * (range + 40)) {
         this.boss.takeMeleeDamage(dmg);
       }
     }
@@ -477,17 +509,15 @@ export class Game {
     if (result.success) {
       this.showNotification(`💥 ¡SACRIFICIO DETONADO: ${result.effectName}!`);
 
-      // Freeze or damage nearby enemies
       for (const enemy of this.enemies) {
         const dx = enemy.x - this.player.x;
         const dy = enemy.y - this.player.y;
-        if (Math.sqrt(dx * dx + dy * dy) <= 240) {
+        if (dx * dx + dy * dy <= 240 * 240) {
           enemy.takeDamage(75, this.player);
           enemy.freeze(6.0);
         }
       }
 
-      // Interrupt Boss if in range
       if (this.boss && this.boss.isAlive) {
         this.boss.interruptWithSacrifice(result.effectName, 90);
         this.showNotification('¡EL COLOSO FUE DERRIBADO Y PIERDE SU ESCUDO DEFLECTOR!');
@@ -501,24 +531,32 @@ export class Game {
     if (item.type === 'npc') {
       const npc = item.target as NPC;
       this.dialogueModal.show(npc, this.player, () => {
-        // Save state after dialogue/reputation change
         SaveSystem.save(this.player, this.currentRegion.id, this.bossDefeated);
       });
     } else if (item.type === 'object') {
       const obj = item.target as WorldObject;
       if (obj.type === 'campfire' && !obj.isLit) {
-        // Light campfire with branches & flint
         if (this.player.getItemCount('branches') >= 1 && this.player.getItemCount('flint') >= 1) {
           this.player.removeItem('branches', 1);
           obj.isLit = true;
           soundManager.playCampfire();
           this.showNotification('¡Encendiste la fogata! Ahora puedes calentarte, cocinar y sintonizar el Códice.');
+          questSystem.updateObjective('prologue_survival', 'light_campfire', 1);
         } else {
           this.showNotification('Necesitas al menos 1 Rama y 1 Pedernal para encender fuego.');
         }
       } else {
         const msg = obj.interact(this.player);
         if (msg) this.showNotification(msg);
+        if (obj.type === 'shipwreck_debris') {
+          questSystem.updateObjective('prologue_survival', 'examine_monolith', 1);
+        }
+        if (obj.type === 'forage_bush' || obj.type === 'branch_pile') {
+          questSystem.updateObjective('prologue_survival', 'gather_branches', 1);
+        }
+        if (this.player.getItemCount('branches') >= 3) {
+          questSystem.updateObjective('prologue_survival', 'gather_branches', 3, true);
+        }
       }
     } else if (item.type === 'chokepoint') {
       const cp = item.target as ChokepointConnection;
@@ -530,6 +568,16 @@ export class Game {
         });
       }
     }
+  }
+
+  public triggerDodgeAction(): boolean {
+    const success = this.player.dodge(this.input.moveX, this.input.moveY);
+    if (success) {
+      this.showNotification('¡Rodar táctico! (I-Frames de invulnerabilidad)');
+    } else if (this.player.vitals.stamina < 18) {
+      this.showNotification('¡Estamina insuficiente para esquivar!');
+    }
+    return success;
   }
 
   private handlePlayerDeath() {
@@ -545,7 +593,6 @@ export class Game {
   }
 
   public openCodex() {
-    // Check if player is near campfire to allow tuning
     let isNearRest = false;
     for (const obj of this.worldObjects) {
       if (obj.type === 'campfire' && obj.isLit && obj.isNear(this.player.x, this.player.y)) {
@@ -554,14 +601,27 @@ export class Game {
       }
     }
     this.codexModal.show(this.player, isNearRest, () => {
+      if (this.player.equippedAbilities.length > 0) {
+        questSystem.updateObjective('tribal_initiation', 'attune_rune', 1);
+      }
       SaveSystem.save(this.player, this.currentRegion.id, this.bossDefeated);
     });
   }
 
   public openInventory() {
     this.inventoryModal.show(this.player, () => {
+      if (this.player.reliquary.length > 0) {
+        questSystem.updateObjective('tribal_initiation', 'obtain_ephemeral', 1);
+      }
+      if (this.player.getItemCount('alien_translator_device') >= 1) {
+        questSystem.updateObjective('celestial_reckoning', 'get_translator', 1);
+      }
       SaveSystem.save(this.player, this.currentRegion.id, this.bossDefeated);
     });
+  }
+
+  public openTestWorld() {
+    this.testWorldModal.show();
   }
 
   public openRadialMenu() {
@@ -576,17 +636,21 @@ export class Game {
         }
       },
       {
-        id: 'canopy',
-        label: 'Zancada',
-        icon: '🍃',
-        color: '#22c55e',
+        id: 'dodge',
+        label: 'Rodar / Esquivar',
+        icon: '💨',
+        color: '#38bdf8',
         action: () => {
-          if (this.player.hasEquippedAbility('canopy_stride')) {
-            const active = this.player.toggleCanopyStride();
-            this.showNotification(`Zancada de Canopia: ${active ? 'ACTIVADA' : 'DESACTIVADA'}`);
-          } else {
-            this.showNotification('No tienes la Zancada de Canopia equipada.');
-          }
+          this.triggerDodgeAction();
+        }
+      },
+      {
+        id: 'sandbox',
+        label: 'Mundo Prueba',
+        icon: '🧪',
+        color: '#a855f7',
+        action: () => {
+          this.openTestWorld();
         }
       },
       {
@@ -648,7 +712,7 @@ export class Game {
     this.notificationTimer = 3.5;
   }
 
-  // --- Rendering Orchestration ---
+  // --- Rendering Orchestration & Frustum Culling ---
 
   private render() {
     const width = this.canvas.width;
@@ -656,36 +720,49 @@ export class Game {
 
     this.ctx.clearRect(0, 0, width, height);
 
+    // View Frustum Bounds
+    const margin = 80;
+    const minX = this.cameraX - margin;
+    const maxX = this.cameraX + width + margin;
+    const minY = this.cameraY - margin;
+    const maxY = this.cameraY + height + margin;
+
     // 1. Draw Biome Terrain Ground
     this.drawTerrain(this.ctx);
 
-    // 2. Draw World Objects (Campfires, Forage, Exotic Nodes)
+    // 2. Draw World Objects (With Frustum Culling)
     for (const obj of this.worldObjects) {
-      obj.draw(this.ctx, this.cameraX, this.cameraY);
+      if (obj.x >= minX && obj.x <= maxX && obj.y >= minY && obj.y <= maxY) {
+        obj.draw(this.ctx, this.cameraX, this.cameraY);
+      }
     }
 
-    // 3. Draw Chokepoint Portals / Roadways
+    // 3. Draw Chokepoints
     this.drawChokepoints(this.ctx);
 
-    // 4. Draw NPCs
+    // 4. Draw NPCs (With Frustum Culling)
     for (const npc of this.npcs) {
-      npc.draw(this.ctx, this.cameraX, this.cameraY);
+      if (npc.x >= minX && npc.x <= maxX && npc.y >= minY && npc.y <= maxY) {
+        npc.draw(this.ctx, this.cameraX, this.cameraY);
+      }
     }
 
-    // 5. Draw Enemies
+    // 5. Draw Enemies (With Frustum Culling)
     for (const enemy of this.enemies) {
-      enemy.draw(this.ctx, this.cameraX, this.cameraY);
+      if (enemy.x >= minX && enemy.x <= maxX && enemy.y >= minY && enemy.y <= maxY) {
+        enemy.draw(this.ctx, this.cameraX, this.cameraY);
+      }
     }
 
     // 6. Draw Final Boss
-    if (this.boss) {
+    if (this.boss && this.boss.x >= minX && this.boss.x <= maxX && this.boss.y >= minY && this.boss.y <= maxY) {
       this.boss.draw(this.ctx, this.cameraX, this.cameraY);
     }
 
     // 7. Draw Player
     this.player.draw(this.ctx, this.cameraX, this.cameraY);
 
-    // 8. Darkness Light Mask (Caverns / Night penumbra)
+    // 8. Darkness Light Mask
     this.drawLightingMask(this.ctx, width, height);
 
     // 9. Weather Particle & Atmospheric Effects
@@ -712,22 +789,106 @@ export class Game {
 
   private drawTerrain(ctx: CanvasRenderingContext2D) {
     const reg = this.currentRegion;
+    const width = this.canvas.width;
+    const height = this.canvas.height;
 
-    // Base background
+    // 1. Base ground color
     ctx.fillStyle = reg.groundColor;
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.fillRect(0, 0, width, height);
 
-    // Subtle Grid / Texture Tiles
+    // 2. Concept Art Environment Illustration Overlay (If loaded)
+    const conceptImg = assetManager.getImage(reg.biomeType) || assetManager.getImage('frost');
+    if (conceptImg && conceptImg.complete && conceptImg.naturalWidth > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.38; // Rich atmospheric landscape blend
+      // Parallax-style tiling/scaling
+      const imgAspect = conceptImg.naturalWidth / conceptImg.naturalHeight;
+      const drawH = height * 1.2;
+      const drawW = drawH * imgAspect;
+      const offsetX = -(this.cameraX * 0.15) % drawW;
+      const offsetY = -(this.cameraY * 0.15) % drawH;
+
+      ctx.drawImage(conceptImg, offsetX, offsetY, drawW, drawH);
+      if (offsetX + drawW < width) {
+        ctx.drawImage(conceptImg, offsetX + drawW, offsetY, drawW, drawH);
+      }
+      ctx.restore();
+    }
+
+    // 3. Procedural Biome Environmental Details
+    ctx.save();
+    if (reg.biomeType === 'beach') {
+      // Dynamic Coastal Tide Water & Shoreline Foam Waves (Art Director & Biome Lead Specs)
+      const waveOffset = Math.sin(Date.now() * 0.002) * 18;
+
+      // Wet Sand Shoreline (Tide line at bottom of map)
+      ctx.fillStyle = 'rgba(142, 128, 92, 0.35)';
+      ctx.fillRect(0, reg.height - 350 - this.cameraY, width, 350);
+
+      // Shoreline Sea Foam & Tidal Ripples
+      ctx.fillStyle = 'rgba(224, 242, 254, 0.22)';
+      for (let i = 0; i < 6; i++) {
+        const py = reg.height - 320 + i * 50 + waveOffset - this.cameraY;
+        if (py >= -50 && py <= height + 50) {
+          ctx.beginPath();
+          ctx.ellipse(width / 2, py, width * 0.9, 14 + i * 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Jagged Basaltic Reef Rocks (Outcrops on the coast)
+      ctx.fillStyle = '#2d3748';
+      ctx.beginPath();
+      ctx.moveTo(150 - this.cameraX, reg.height - 180 - this.cameraY);
+      ctx.lineTo(240 - this.cameraX, reg.height - 290 - this.cameraY);
+      ctx.lineTo(320 - this.cameraX, reg.height - 160 - this.cameraY);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(1650 - this.cameraX, 400 - this.cameraY);
+      ctx.lineTo(1780 - this.cameraX, 260 - this.cameraY);
+      ctx.lineTo(1890 - this.cameraX, 450 - this.cameraY);
+      ctx.closePath();
+      ctx.fill();
+    } else if (reg.biomeType === 'swamp') {
+      // Bioluminescent phosphor mud pools
+      ctx.fillStyle = 'rgba(112, 224, 0, 0.15)';
+      ctx.beginPath();
+      ctx.arc(600 - this.cameraX, 800 - this.cameraY, 120, 0, Math.PI * 2);
+      ctx.arc(1600 - this.cameraX, 1200 - this.cameraY, 150, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (reg.biomeType === 'caverns') {
+      // Subterranean glowing crystal veins
+      ctx.strokeStyle = 'rgba(114, 9, 183, 0.35)';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(300 - this.cameraX, 200 - this.cameraY);
+      ctx.lineTo(800 - this.cameraX, 900 - this.cameraY);
+      ctx.lineTo(1800 - this.cameraX, 1500 - this.cameraY);
+      ctx.stroke();
+    } else if (reg.biomeType === 'alien_core') {
+      // Biomechanical energy conduit rings
+      ctx.strokeStyle = 'rgba(0, 245, 212, 0.3)';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.arc(reg.width / 2 - this.cameraX, reg.height / 2 - this.cameraY, 320, 0, Math.PI * 2);
+      ctx.arc(reg.width / 2 - this.cameraX, reg.height / 2 - this.cameraY, 520, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 4. Subtle Spatial Reference Grid
     const tileSize = 64;
     const startCol = Math.floor(this.cameraX / tileSize);
-    const endCol = startCol + Math.ceil(this.canvas.width / tileSize) + 1;
+    const endCol = startCol + Math.ceil(width / tileSize) + 1;
     const startRow = Math.floor(this.cameraY / tileSize);
-    const endRow = startRow + Math.ceil(this.canvas.height / tileSize) + 1;
+    const endRow = startRow + Math.ceil(height / tileSize) + 1;
 
     ctx.save();
     ctx.strokeStyle = reg.accentColor;
     ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.2;
+    ctx.globalAlpha = 0.12;
 
     for (let c = startCol; c <= endCol; c++) {
       for (let r = startRow; r <= endRow; r++) {
@@ -762,14 +923,12 @@ export class Game {
   private drawLightingMask(ctx: CanvasRenderingContext2D, width: number, height: number) {
     const lightLevel = this.currentRegion.ambientLight;
 
-    // Has Spectral Vision passive or Spectral Lantern active?
     const hasSpectralVision = this.player.hasEquippedAbility('iron_grip');
     const hasSpectralLantern = this.player.isEphemeralActive('spectral_lantern');
 
     if (lightLevel >= 0.8 && !hasSpectralLantern) return;
 
     ctx.save();
-    // Dark overlay mask
     const targetAlpha = hasSpectralVision ? 0.3 : hasSpectralLantern ? 0.2 : (1.0 - lightLevel);
 
     const playerScreenX = this.player.x - this.cameraX;

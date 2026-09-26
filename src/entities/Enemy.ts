@@ -30,6 +30,13 @@ export class Enemy {
   public isBlinded: boolean = false;
   public blindTimer: number = 0;
 
+  // Telegraphed Attack Mechanics
+  public isTelegraphing: boolean = false;
+  public telegraphTimer: number = 0;
+  public telegraphDuration: number = 0.55;
+  public telegraphTarget: { x: number; y: number; radius: number } | null = null;
+  public justDodgedFeedbackTimer: number = 0;
+
   constructor(type: EnemyType, x: number, y: number) {
     this.id = `enemy_${Date.now()}_${Math.random()}`;
     this.type = type;
@@ -108,6 +115,34 @@ export class Enemy {
       this.attackCooldown -= delta;
     }
 
+    if (this.justDodgedFeedbackTimer > 0) {
+      this.justDodgedFeedbackTimer -= delta;
+    }
+
+    // Process Active Telegraph Windup
+    if (this.isTelegraphing && this.telegraphTarget) {
+      this.telegraphTimer -= delta;
+      if (this.telegraphTimer <= 0) {
+        // Strike triggers at telegraphed zone
+        const hitDist = Math.hypot(player.x - this.telegraphTarget.x, player.y - this.telegraphTarget.y);
+        if (hitDist <= this.telegraphTarget.radius + 12) {
+          if (player.isInvulnerable) {
+            // Player dodged through attack with i-frames!
+            this.justDodgedFeedbackTimer = 0.9;
+            soundManager.playDodge();
+          } else {
+            // Player hit!
+            player.vitals.health = Math.max(0, player.vitals.health - this.damage);
+            soundManager.playHit();
+          }
+        }
+        this.isTelegraphing = false;
+        this.telegraphTarget = null;
+        this.attackCooldown = 1.35;
+      }
+      return; // Root enemy briefly while winding up telegraphed attack
+    }
+
     // Detection Radius
     let detectionRadius = 220;
     // Stealth modifiers (GDD Sec. 3 & 7.4)
@@ -129,11 +164,12 @@ export class Enemy {
       this.y += (dy / dist) * this.speed * delta;
     }
 
-    // Attack player if close
-    if (dist <= 36 && this.attackCooldown <= 0 && player.invisibilityTimer <= 0) {
-      player.vitals.health = Math.max(0, player.vitals.health - this.damage);
-      this.attackCooldown = 1.2;
-      soundManager.playHit();
+    // Initiate Telegraphed Attack when in range
+    if (dist <= 46 && this.attackCooldown <= 0 && player.invisibilityTimer <= 0 && !this.isTelegraphing) {
+      this.isTelegraphing = true;
+      this.telegraphTimer = this.telegraphDuration;
+      this.telegraphTarget = { x: player.x, y: player.y, radius: 46 };
+      soundManager.playTelegraph();
     }
   }
 
@@ -170,6 +206,46 @@ export class Enemy {
 
     const screenX = this.x - cameraX;
     const screenY = this.y - cameraY;
+
+    // 1. Draw Telegraphed Attack Indicator on Ground
+    if (this.isTelegraphing && this.telegraphTarget) {
+      const tgtScreenX = this.telegraphTarget.x - cameraX;
+      const tgtScreenY = this.telegraphTarget.y - cameraY;
+      const progress = Math.min(1, Math.max(0, 1 - this.telegraphTimer / this.telegraphDuration));
+
+      ctx.save();
+      // Outer warning ring
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.arc(tgtScreenX, tgtScreenY, this.telegraphTarget.radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Inner expanding danger fill
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.28)';
+      ctx.beginPath();
+      ctx.arc(tgtScreenX, tgtScreenY, this.telegraphTarget.radius * progress, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Warning marker
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#f87171';
+      ctx.fillText('⚠️', tgtScreenX, tgtScreenY - this.telegraphTarget.radius - 4);
+      ctx.restore();
+    }
+
+    // 2. Draw Floating Dodge Success Cue
+    if (this.justDodgedFeedbackTimer > 0) {
+      ctx.save();
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      const floatY = screenY - 28 - (0.9 - this.justDodgedFeedbackTimer) * 20;
+      ctx.fillText('¡ESQUIVADO! 💨', screenX, floatY);
+      ctx.restore();
+    }
 
     ctx.save();
 

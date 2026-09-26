@@ -3,6 +3,8 @@
 import './style.css';
 import { Game } from './core/Game';
 import { soundManager } from './audio/SoundManager';
+import { VirtualJoystick } from './ui/VirtualJoystick';
+import { SaveSystem } from './systems/SaveSystem';
 
 function initApp() {
   const container = document.getElementById('app-container') as HTMLElement;
@@ -14,6 +16,9 @@ function initApp() {
   }
 
   window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('orientationchange', () => {
+    setTimeout(resizeCanvas, 200);
+  });
   resizeCanvas();
 
   // Instantiate and run game
@@ -24,6 +29,21 @@ function initApp() {
   if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
+
+  // Mobile Virtual Joystick (NippleJS) bound to touch-controls-left zone
+  const touchZone = document.getElementById('touch-controls-left') || container;
+  const joystick = new VirtualJoystick();
+  joystick.init(
+    touchZone,
+    (vx, vy) => {
+      game.input.moveX = vx;
+      game.input.moveY = vy;
+    },
+    () => {
+      game.input.moveX = 0;
+      game.input.moveY = 0;
+    }
+  );
 
   // Audio unmute on first gesture
   const unmuteSound = () => {
@@ -42,28 +62,68 @@ function initApp() {
     muteBtn.innerText = isMuted ? '🔇 Mute' : '🔊 Audio';
   });
 
-  // Mobile Frame Toggle
+  // Mobile Frame / Fullscreen Toggle
   const frameBtn = document.getElementById('btn-toggle-frame');
   frameBtn?.addEventListener('click', () => {
     container.classList.toggle('mobile-frame');
+    if (!container.classList.contains('mobile-frame') && document.fullscreenEnabled && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
     resizeCanvas();
   });
 
+  // Test World Sandbox Button
+  const testWorldBtn = document.getElementById('btn-test-world');
+  testWorldBtn?.addEventListener('click', () => {
+    game.openTestWorld();
+  });
+
+  // Reset Game & Clear LocalStorage Button
+  const resetBtn = document.getElementById('btn-reset-game');
+  resetBtn?.addEventListener('click', () => {
+    SaveSystem.clearSave();
+    window.location.reload();
+  });
+
+  // Helper for touch/mouse events binding
+  const bindTouchOrClick = (elementId: string, callback: () => void) => {
+    const btn = document.getElementById(elementId);
+    if (!btn) return;
+    let touchHandled = false;
+
+    btn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      touchHandled = true;
+      callback();
+    });
+
+    btn.addEventListener('click', (e) => {
+      if (touchHandled) {
+        touchHandled = false;
+        return;
+      }
+      callback();
+    });
+  };
+
   // Bind On-Screen Touch Action Buttons
   const btnAttack = document.getElementById('btn-touch-attack');
-  btnAttack?.addEventListener('touchstart', (e) => {
-    e.preventDefault();
+  const triggerAttack = () => {
     if (game.player.attack()) {
       // @ts-expect-error accessing private method for action dispatch
       game.resolveMeleeAttack();
     }
+  };
+  btnAttack?.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    triggerAttack();
   });
   btnAttack?.addEventListener('mousedown', (e) => {
     e.preventDefault();
-    if (game.player.attack()) {
-      // @ts-expect-error accessing private method for action dispatch
-      game.resolveMeleeAttack();
-    }
+    triggerAttack();
   });
 
   const btnSprint = document.getElementById('btn-touch-sprint');
@@ -80,25 +140,11 @@ function initApp() {
   btnSprint?.addEventListener('mousedown', startSprint);
   btnSprint?.addEventListener('mouseup', endSprint);
 
-  const btnRadial = document.getElementById('btn-touch-radial');
-  btnRadial?.addEventListener('click', () => {
-    game.openRadialMenu();
-  });
-
-  const btnCodex = document.getElementById('btn-touch-codex');
-  btnCodex?.addEventListener('click', () => {
-    game.openCodex();
-  });
-
-  const btnInventory = document.getElementById('btn-touch-inv');
-  btnInventory?.addEventListener('click', () => {
-    game.openInventory();
-  });
-
-  const btnSacrifice = document.getElementById('btn-touch-sacrifice');
-  btnSacrifice?.addEventListener('click', () => {
-    game.triggerSacrificeAction();
-  });
+  bindTouchOrClick('btn-touch-radial', () => game.openRadialMenu());
+  bindTouchOrClick('btn-touch-codex', () => game.openCodex());
+  bindTouchOrClick('btn-touch-inv', () => game.openInventory());
+  bindTouchOrClick('btn-touch-sacrifice', () => game.triggerSacrificeAction());
+  bindTouchOrClick('btn-touch-dodge', () => game.triggerDodgeAction());
 }
 
 window.addEventListener('DOMContentLoaded', initApp);

@@ -15,13 +15,18 @@
   <div id="app-container">
     <canvas id="game-canvas"></canvas>
 
+    <!-- Dedicated Touch Zone for Virtual Joystick (Left Side of Screen) -->
+    <div id="touch-controls-left" class="touch-controls-left"></div>
+
     <!-- Top Status Bar Controls -->
     <div class="top-controls">
+      <button class="icon-btn btn-test-world" id="btn-test-world" title="Abrir Mundo de Prueba & Galería de Arte">🧪 Mundo de Prueba</button>
+      <button class="icon-btn" id="btn-reset-game" title="Reiniciar Partida y Limpiar Guardado">🔄 Reiniciar</button>
       <button class="icon-btn" id="btn-toggle-frame" title="Alternar Vista Móvil / Pantalla Completa">📱 Móvil/PC</button>
       <button class="icon-btn" id="btn-mute" title="Activar/Desactivar Sonido">🔊 Audio</button>
     </div>
 
-    <!-- On-Screen Mobile Thumb Buttons -->
+    <!-- On-Screen Mobile Thumb Buttons (Right Side of Screen) -->
     <div class="mobile-touch-bar">
       <!-- Upper row: Utilities -->
       <div class="touch-row">
@@ -44,6 +49,10 @@
         <button class="touch-action-btn btn-sacrifice" id="btn-touch-sacrifice" title="Detonar Sacrificio">
           <span>💥</span>
           <span class="label">Sacrificio</span>
+        </button>
+        <button class="touch-action-btn btn-dodge" id="btn-touch-dodge" title="Rodar / Esquivar (I-Frames de invulnerabilidad)">
+          <span>💨</span>
+          <span class="label">Rodar</span>
         </button>
         <button class="touch-action-btn" id="btn-touch-sprint" title="Sprint">
           <span>⚡</span>

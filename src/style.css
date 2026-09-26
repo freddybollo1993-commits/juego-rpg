@@ -92,6 +92,18 @@ canvas#game-canvas {
   transform: scale(1.05);
 }
 
+/* Dedicated Touch Control Zone for Virtual Joystick (Left 50% of Viewport) */
+.touch-controls-left {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  z-index: 30;
+  touch-action: none;
+  pointer-events: none;
+}
+
 /* On-screen Mobile Touch Buttons */
 .mobile-touch-bar {
   position: absolute;
@@ -154,6 +166,16 @@ canvas#game-canvas {
 
 .btn-sacrifice {
   border-color: #f97316;
+}
+
+.btn-dodge {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.22);
+}
+
+.btn-dodge:active {
+  background: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.7);
 }
 
 /* Modals Overlay */
@@ -975,6 +997,10 @@ canvas#game-canvas {
   align-items: center;
 }
 
+.radial-menu-overlay.hidden {
+  display: none !important;
+}
+
 .radial-center {
   position: relative;
   width: 60px;
@@ -1031,3 +1057,261 @@ canvas#game-canvas {
   font-weight: bold;
   color: #e2e8f0;
 }
+
+/* Test World (Sandbox) Styles */
+.btn-test-world {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(212, 175, 55, 0.3));
+  border-color: #c084fc;
+  color: #fef08a;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+}
+
+.test-world-card {
+  max-width: 780px !important;
+  max-height: 90vh !important;
+}
+
+.tw-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tw-section h3 {
+  font-size: 14px;
+  color: var(--border-gold);
+  border-bottom: 1px solid #334155;
+  padding-bottom: 6px;
+}
+
+.tw-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.tw-biomes-grid, .tw-creatures-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.tw-biome-card, .tw-creature-card {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #475569;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tw-biome-card.current {
+  border-color: var(--border-gold);
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.tw-biome-header, .tw-creature-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-left: 6px;
+}
+
+.tw-tag, .tw-biome-tag {
+  font-size: 9px;
+  padding: 2px 6px;
+  background: #1e293b;
+  border-radius: 4px;
+  color: #38bdf8;
+}
+
+.tw-desc {
+  font-size: 11px;
+  color: #cbd5e1;
+  line-height: 1.35;
+}
+
+.tw-stats, .tw-art-spec {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.tw-teleport-btn, .tw-spawn-btn, .tw-action-btn {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: bold;
+  background: var(--border-gold);
+  color: #0f172a;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: auto;
+  transition: transform 0.1s, background 0.1s;
+}
+
+.tw-teleport-btn:hover, .tw-spawn-btn:hover, .tw-action-btn:hover {
+  transform: scale(1.02);
+  filter: brightness(1.1);
+}
+
+/* Concept Art Gallery */
+.tw-art-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.tw-art-card {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-gold);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tw-art-img-wrapper {
+  width: 100%;
+  height: 180px;
+  background: #000;
+  overflow: hidden;
+}
+
+.tw-art-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.tw-art-card:hover .tw-art-img {
+  transform: scale(1.04);
+}
+
+.tw-art-info {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tw-art-info h4 {
+  font-size: 13px;
+  color: var(--border-gold);
+}
+
+.tw-art-info p {
+  font-size: 11px;
+  color: #cbd5e1;
+  line-height: 1.35;
+}
+
+.tw-shape-spec {
+  font-size: 10px;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.tw-palette {
+  font-size: 10px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.palette-swatches {
+  display: flex;
+  gap: 4px;
+}
+
+.swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  display: inline-block;
+}
+
+/* Tools Sandbox Grid */
+.tw-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.tw-tool-item {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid #475569;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.switch-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #f8fafc;
+  cursor: pointer;
+}
+
+.tw-tool-desc {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+/* Mobile Screen Responsive Adaptations */
+@media (max-width: 640px) {
+  .top-controls {
+    top: 6px;
+    right: 6px;
+    gap: 4px;
+  }
+
+  .icon-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .mobile-touch-bar {
+    bottom: 10px;
+    right: 10px;
+    gap: 8px;
+  }
+
+  .touch-action-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 16px;
+  }
+
+  .touch-action-btn span.label {
+    font-size: 8px;
+  }
+
+  .btn-attack {
+    width: 58px;
+    height: 58px;
+  }
+
+  .modal-card {
+    max-width: 96vw;
+    max-height: 92vh;
+  }
+
+  .tw-biomes-grid, .tw-creatures-grid, .tw-art-gallery, .tw-tools-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+

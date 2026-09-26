@@ -62,15 +62,93 @@ export class Player {
   // Invisibility / Camouflage state
   public invisibilityTimer: number = 0;
 
+  // Tactical Dodge / Roll with i-frames
+  public isDashing: boolean = false;
+  public dashTimer: number = 0;
+  public dashCooldown: number = 0;
+  public isInvulnerable: boolean = false;
+  public dashVx: number = 0;
+  public dashVy: number = 0;
+  public dashTrail: { x: number; y: number; alpha: number; facing: string }[] = [];
+
   constructor() {
     // Initial Prologue Inventory: The Ancestral Rock (GDD Sec. 10.4)
     this.addItem('ancestral_rock', 1);
   }
 
+  public dodge(dirX?: number, dirY?: number): boolean {
+    if (this.dashCooldown > 0 || this.isDashing || this.vitals.stamina < 18) {
+      return false;
+    }
+
+    // Drain stamina
+    this.vitals.stamina = Math.max(0, this.vitals.stamina - 18);
+
+    this.isDashing = true;
+    this.isInvulnerable = true;
+    this.dashTimer = 0.24; // 240ms invulnerability window
+    this.dashCooldown = 0.65; // 650ms cooldown before next roll
+
+    let dx = dirX !== undefined && dirX !== 0 ? dirX : this.vx;
+    let dy = dirY !== undefined && dirY !== 0 ? dirY : this.vy;
+
+    if (dx === 0 && dy === 0) {
+      if (this.facing === 'down') dy = 1;
+      else if (this.facing === 'up') dy = -1;
+      else if (this.facing === 'left') dx = -1;
+      else if (this.facing === 'right') dx = 1;
+    }
+
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len > 0) {
+      dx /= len;
+      dy /= len;
+    }
+
+    const dashSpeed = this.speed * 2.85;
+    this.dashVx = dx * dashSpeed;
+    this.dashVy = dy * dashSpeed;
+
+    soundManager.playDodge();
+    return true;
+  }
+
   public update(delta: number) {
-    // Position integration
-    this.x += this.vx * delta;
-    this.y += this.vy * delta;
+    // Dodge roll integration
+    if (this.isDashing) {
+      this.dashTimer -= delta;
+      this.x += this.dashVx * delta;
+      this.y += this.dashVy * delta;
+
+      // Add trail after-image
+      this.dashTrail.push({
+        x: this.x,
+        y: this.y,
+        alpha: 0.6,
+        facing: this.facing
+      });
+
+      if (this.dashTimer <= 0) {
+        this.isDashing = false;
+        this.isInvulnerable = false;
+      }
+    } else {
+      // Normal position integration
+      this.x += this.vx * delta;
+      this.y += this.vy * delta;
+    }
+
+    if (this.dashCooldown > 0) {
+      this.dashCooldown -= delta;
+    }
+
+    // Decay dash trail after-images
+    for (let i = this.dashTrail.length - 1; i >= 0; i--) {
+      this.dashTrail[i].alpha -= delta * 3.2;
+      if (this.dashTrail[i].alpha <= 0) {
+        this.dashTrail.splice(i, 1);
+      }
+    }
 
     // Invisibility timer
     if (this.invisibilityTimer > 0) {
@@ -363,9 +441,32 @@ export class Player {
 
     ctx.save();
 
-    // Camouflage / Invisibility alpha
+    // Render Dodge After-Images (Motion Trail)
+    for (const trail of this.dashTrail) {
+      const trailX = trail.x - cameraX;
+      const trailY = trail.y - cameraY;
+      ctx.save();
+      ctx.globalAlpha = trail.alpha * 0.45;
+      ctx.fillStyle = '#d4af37'; // Golden warrior trail
+      ctx.beginPath();
+      ctx.ellipse(trailX, trailY - 4, 14, 20, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Camouflage / Invisibility alpha or Dodge Invulnerability shimmer
     if (this.invisibilityTimer > 0) {
       ctx.globalAlpha = 0.35;
+    } else if (this.isDashing) {
+      ctx.globalAlpha = 0.85;
+    }
+
+    // Roll rotation / dynamic squash when dashing
+    if (this.isDashing) {
+      ctx.translate(screenX, screenY - 6);
+      const rollAngle = (1 - this.dashTimer / 0.24) * Math.PI * 2;
+      ctx.rotate(this.dashVx >= 0 ? rollAngle : -rollAngle);
+      ctx.translate(-screenX, -(screenY - 6));
     }
 
     // Shadow

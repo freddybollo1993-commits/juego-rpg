@@ -31,6 +31,18 @@ export class Boss {
   public projectiles: { x: number; y: number; vx: number; vy: number; radius: number; color: string }[] = [];
   public attackCooldown: number = 2.0;
 
+  // Telegraphed Orbital Celestial Beams
+  public telegraphedBeams: {
+    x: number;
+    y: number;
+    radius: number;
+    timer: number;
+    maxTimer: number;
+    color: string;
+    damage: number;
+  }[] = [];
+  public orbitalStrikeCooldown: number = 4.0;
+
   constructor(x: number, y: number) {
     this.x = x;
     this.y = y;
@@ -94,18 +106,61 @@ export class Boss {
       }
     }
 
+    // Orbital Celestial Beam Strike (Telegraphed Hazard)
+    this.orbitalStrikeCooldown -= delta;
+    if (this.orbitalStrikeCooldown <= 0) {
+      this.orbitalStrikeCooldown = 4.2 + Math.random() * 2.5;
+      const beamColor = this.currentPhase === 'cryogenic' ? '#38bdf8' :
+                        this.currentPhase === 'toxic_miasma' ? '#70e000' :
+                        this.currentPhase === 'volcanic_thermal' ? '#f97316' : '#c084fc';
+      this.telegraphedBeams.push({
+        x: player.x,
+        y: player.y,
+        radius: 58,
+        timer: 1.1,
+        maxTimer: 1.1,
+        color: beamColor,
+        damage: 28
+      });
+      soundManager.playTelegraph();
+    }
+
+    // Update active orbital beams
+    for (let i = this.telegraphedBeams.length - 1; i >= 0; i--) {
+      const beam = this.telegraphedBeams[i];
+      beam.timer -= delta;
+      if (beam.timer <= 0) {
+        // Detonate beam!
+        soundManager.playOrbitalBeam();
+        const dist = Math.hypot(player.x - beam.x, player.y - beam.y);
+        if (dist <= beam.radius + 12) {
+          if (!player.isInvulnerable) {
+            player.vitals.health = Math.max(0, player.vitals.health - beam.damage);
+            soundManager.playHit();
+          } else {
+            soundManager.playDodge();
+          }
+        }
+        this.telegraphedBeams.splice(i, 1);
+      }
+    }
+
     // Update projectiles
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
       p.x += p.vx * delta * 60;
       p.y += p.vy * delta * 60;
 
-      // Hit player check
+      // Hit player check (respects dodge i-frames)
       const dx = player.x - p.x;
       const dy = player.y - p.y;
       if (Math.sqrt(dx * dx + dy * dy) <= p.radius + 16) {
-        player.vitals.health = Math.max(0, player.vitals.health - 18);
-        soundManager.playHit();
+        if (!player.isInvulnerable) {
+          player.vitals.health = Math.max(0, player.vitals.health - 18);
+          soundManager.playHit();
+        } else {
+          soundManager.playDodge();
+        }
         this.projectiles.splice(i, 1);
       }
     }
@@ -169,6 +224,44 @@ export class Boss {
 
   public draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
     if (!this.isAlive) return;
+
+    // Draw Telegraphed Orbital Celestial Beams
+    for (const beam of this.telegraphedBeams) {
+      const bx = beam.x - cameraX;
+      const by = beam.y - cameraY;
+      const progress = Math.min(1, Math.max(0, 1 - beam.timer / beam.maxTimer));
+
+      ctx.save();
+      // Outer warning ring
+      ctx.strokeStyle = beam.color;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.arc(bx, by, beam.radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Inner charging energy disk
+      ctx.fillStyle = beam.color;
+      ctx.globalAlpha = 0.22 + progress * 0.38;
+      ctx.beginPath();
+      ctx.arc(bx, by, beam.radius * progress, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Vertical targeting laser column from sky
+      ctx.strokeStyle = beam.color;
+      ctx.lineWidth = 2 + progress * 4;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(bx, -100);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('⚡ IMPACTO CELESTIAL', bx, by - beam.radius - 6);
+      ctx.restore();
+    }
 
     const screenX = this.x - cameraX;
     const screenY = this.y - cameraY;

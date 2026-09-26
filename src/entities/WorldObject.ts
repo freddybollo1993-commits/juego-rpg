@@ -4,7 +4,7 @@ import { ITEMS_CATALOG } from '../data/items';
 import { Player } from './Player';
 import { soundManager } from '../audio/SoundManager';
 
-export type WorldObjectType = 'campfire' | 'forage_bush' | 'branch_pile' | 'flint_rock' | 'exotic_node' | 'shipwreck_debris';
+export type WorldObjectType = 'campfire' | 'forage_bush' | 'branch_pile' | 'flint_rock' | 'exotic_node' | 'shipwreck_debris' | 'coastal_palm';
 
 export class WorldObject {
   public id: string;
@@ -59,6 +59,12 @@ export class WorldObject {
         this.height = 36;
         this.dropItemId = 'branches';
         this.dropAmount = 4;
+        break;
+      case 'coastal_palm':
+        this.width = 48;
+        this.height = 80;
+        this.dropItemId = 'branches';
+        this.dropAmount = 2;
         break;
       case 'exotic_node':
         this.width = 38;
@@ -178,18 +184,79 @@ export class WorldObject {
       ctx.closePath();
       ctx.fill();
     } else if (this.type === 'shipwreck_debris') {
+      // Wrecked Galleon Wood & Broken Canvas Sail (Art Director Spec)
       ctx.fillStyle = '#3a2010';
-      ctx.fillRect(screenX - 22, screenY - 10, 44, 20);
-      ctx.strokeStyle = '#24140a';
+      ctx.fillRect(screenX - 24, screenY - 12, 48, 24);
+      ctx.strokeStyle = '#1e1008';
       ctx.lineWidth = 2;
-      ctx.strokeRect(screenX - 22, screenY - 10, 44, 20);
-      // Mast piece
-      ctx.strokeStyle = '#6f4e37';
-      ctx.lineWidth = 4;
+      ctx.strokeRect(screenX - 24, screenY - 12, 48, 24);
+
+      // Plank lines & grain
+      ctx.strokeStyle = '#523018';
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(screenX - 16, screenY + 12);
-      ctx.lineTo(screenX + 18, screenY - 18);
+      ctx.moveTo(screenX - 24, screenY - 4);
+      ctx.lineTo(screenX + 24, screenY - 4);
+      ctx.moveTo(screenX - 24, screenY + 4);
+      ctx.lineTo(screenX + 24, screenY + 4);
       ctx.stroke();
+
+      // Rusted Iron Straps
+      ctx.fillStyle = '#6b7280';
+      ctx.fillRect(screenX - 18, screenY - 12, 4, 24);
+      ctx.fillRect(screenX + 14, screenY - 12, 4, 24);
+
+      // Shattered Wooden Mast
+      ctx.strokeStyle = '#7c4a21';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(screenX - 20, screenY + 14);
+      ctx.lineTo(screenX + 22, screenY - 20);
+      ctx.stroke();
+
+      // Torn White Sail Canvas piece
+      ctx.fillStyle = 'rgba(241, 245, 249, 0.75)';
+      ctx.beginPath();
+      ctx.moveTo(screenX - 6, screenY - 12);
+      ctx.lineTo(screenX + 10, screenY - 18);
+      ctx.lineTo(screenX + 16, screenY - 6);
+      ctx.closePath();
+      ctx.fill();
+    } else if (this.type === 'coastal_palm') {
+      // Shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+      ctx.beginPath();
+      ctx.ellipse(screenX + 4, screenY + 18, 20, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Trunk
+      ctx.fillStyle = '#54381e';
+      ctx.beginPath();
+      ctx.moveTo(screenX - 5, screenY + 18);
+      ctx.quadraticCurveTo(screenX + 12, screenY - 10, screenX, screenY - 48);
+      ctx.lineTo(screenX + 8, screenY - 48);
+      ctx.quadraticCurveTo(screenX + 20, screenY - 10, screenX + 7, screenY + 18);
+      ctx.closePath();
+      ctx.fill();
+
+      // Lush Green Palm Fronds
+      ctx.strokeStyle = '#15803d';
+      ctx.lineWidth = 4.5;
+      const topX = screenX + 4;
+      const topY = screenY - 48;
+
+      const frondAngles = [-0.3, 0.5, 1.3, 2.1, 2.9, 3.7, 4.5];
+      for (const a of frondAngles) {
+        ctx.beginPath();
+        ctx.moveTo(topX, topY);
+        ctx.quadraticCurveTo(topX + Math.cos(a) * 25, topY + Math.sin(a) * 20 - 10, topX + Math.cos(a) * 44, topY + Math.sin(a) * 44 + 10);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath();
+      ctx.arc(topX, topY, 7, 0, Math.PI * 2);
+      ctx.fill();
     } else if (this.type === 'exotic_node') {
       // Sparkling Exotic Mineral / Flower
       const pulse = Math.sin(Date.now() * 0.006);

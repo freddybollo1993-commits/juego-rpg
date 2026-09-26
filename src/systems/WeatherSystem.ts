@@ -15,28 +15,28 @@ export interface WeatherParticle {
 export class WeatherSystem {
   private particles: WeatherParticle[] = [];
   private maxParticles: number = 180;
-  private weatherType: string = 'clear';
+  public currentWeather: string = 'clear';
 
   constructor() {}
 
   public setWeather(type: 'clear' | 'blizzard' | 'rain' | 'toxic_fog' | 'sandstorm' | 'alien_aurora') {
-    if (this.weatherType !== type) {
-      this.weatherType = type;
+    if (this.currentWeather !== type) {
+      this.currentWeather = type;
       this.particles = [];
     }
   }
 
-  public updateAndDraw(ctx: CanvasRenderingContext2D, width: number, height: number, cameraX: number, cameraY: number, delta: number) {
-    if (this.weatherType === 'clear') return;
+  public updateAndDraw(ctx: CanvasRenderingContext2D, width: number, height: number, _cameraX: number, _cameraY: number, delta: number) {
+    if (this.currentWeather === 'clear') return;
 
-    // Spawn new particles if needed
+    // Pre-allocate particles if needed
     while (this.particles.length < this.maxParticles) {
       this.particles.push(this.createParticle(width, height));
     }
 
     ctx.save();
 
-    for (let i = this.particles.length - 1; i >= 0; i--) {
+    for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
       p.x += p.vx * delta * 60;
       p.y += p.vy * delta * 60;
@@ -49,14 +49,14 @@ export class WeatherSystem {
       if (p.y > height) p.y -= height;
 
       if (p.life > p.maxLife) {
-        this.particles[i] = this.createParticle(width, height);
+        this.resetParticle(p, width, height);
         continue;
       }
 
       ctx.fillStyle = p.color;
       ctx.globalAlpha = p.alpha * (1 - Math.abs(p.life / p.maxLife - 0.5) * 1.5);
 
-      if (this.weatherType === 'rain') {
+      if (this.currentWeather === 'rain') {
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
         ctx.lineTo(p.x - p.vx * 3, p.y + p.vy * 3);
@@ -71,27 +71,25 @@ export class WeatherSystem {
     }
 
     // Weather Atmospheric Overlay
-    if (this.weatherType === 'blizzard') {
-      // Vignette icy cold edges
+    if (this.currentWeather === 'blizzard') {
       const grad = ctx.createRadialGradient(width / 2, height / 2, width * 0.25, width / 2, height / 2, width * 0.7);
       grad.addColorStop(0, 'rgba(214, 230, 242, 0)');
       grad.addColorStop(1, 'rgba(180, 210, 240, 0.25)');
       ctx.fillStyle = grad;
       ctx.globalAlpha = 1.0;
       ctx.fillRect(0, 0, width, height);
-    } else if (this.weatherType === 'toxic_fog') {
+    } else if (this.currentWeather === 'toxic_fog') {
       const grad = ctx.createRadialGradient(width / 2, height / 2, width * 0.2, width / 2, height / 2, width * 0.65);
       grad.addColorStop(0, 'rgba(40, 80, 40, 0)');
       grad.addColorStop(1, 'rgba(30, 90, 30, 0.3)');
       ctx.fillStyle = grad;
       ctx.globalAlpha = 1.0;
       ctx.fillRect(0, 0, width, height);
-    } else if (this.weatherType === 'sandstorm') {
+    } else if (this.currentWeather === 'sandstorm') {
       ctx.fillStyle = 'rgba(180, 110, 40, 0.15)';
       ctx.globalAlpha = 1.0;
       ctx.fillRect(0, 0, width, height);
-    } else if (this.weatherType === 'alien_aurora') {
-      // Eerie shifting purple / cyan alien energy waves
+    } else if (this.currentWeather === 'alien_aurora') {
       const time = Date.now() * 0.001;
       const grad = ctx.createLinearGradient(0, 0, width, height);
       grad.addColorStop(0, `rgba(138, 43, 226, ${0.1 + Math.sin(time) * 0.05})`);
@@ -106,53 +104,53 @@ export class WeatherSystem {
   }
 
   private createParticle(width: number, height: number): WeatherParticle {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
-    let vx = 0;
-    let vy = 0;
-    let size = 2;
-    let color = '#ffffff';
-    let alpha = 0.5;
-    const maxLife = 3 + Math.random() * 5;
+    const p: WeatherParticle = { x: 0, y: 0, vx: 0, vy: 0, size: 2, color: '#ffffff', alpha: 0.5, life: 0, maxLife: 5 };
+    this.resetParticle(p, width, height);
+    return p;
+  }
 
-    switch (this.weatherType) {
+  private resetParticle(p: WeatherParticle, width: number, height: number) {
+    p.x = Math.random() * width;
+    p.y = Math.random() * height;
+    p.life = 0;
+    p.maxLife = 3 + Math.random() * 5;
+
+    switch (this.currentWeather) {
       case 'blizzard':
-        vx = -5 - Math.random() * 7;
-        vy = 3 + Math.random() * 5;
-        size = 1.5 + Math.random() * 3.5;
-        color = '#ffffff';
-        alpha = 0.4 + Math.random() * 0.5;
+        p.vx = -5 - Math.random() * 7;
+        p.vy = 3 + Math.random() * 5;
+        p.size = 1.5 + Math.random() * 3.5;
+        p.color = '#ffffff';
+        p.alpha = 0.4 + Math.random() * 0.5;
         break;
       case 'rain':
-        vx = -1.5;
-        vy = 12 + Math.random() * 8;
-        size = 1.2;
-        color = '#a0c4ff';
-        alpha = 0.35 + Math.random() * 0.3;
+        p.vx = -1.5;
+        p.vy = 12 + Math.random() * 8;
+        p.size = 1.2;
+        p.color = '#a0c4ff';
+        p.alpha = 0.35 + Math.random() * 0.3;
         break;
       case 'toxic_fog':
-        vx = (Math.random() - 0.5) * 1.5;
-        vy = (Math.random() - 0.5) * 1.5;
-        size = 3 + Math.random() * 6;
-        color = Math.random() > 0.4 ? '#39ff14' : '#70e000';
-        alpha = 0.2 + Math.random() * 0.25;
+        p.vx = (Math.random() - 0.5) * 1.5;
+        p.vy = (Math.random() - 0.5) * 1.5;
+        p.size = 3 + Math.random() * 6;
+        p.color = Math.random() > 0.4 ? '#39ff14' : '#70e000';
+        p.alpha = 0.2 + Math.random() * 0.25;
         break;
       case 'sandstorm':
-        vx = 8 + Math.random() * 8;
-        vy = (Math.random() - 0.5) * 3;
-        size = 2 + Math.random() * 3;
-        color = '#e9c46a';
-        alpha = 0.35 + Math.random() * 0.4;
+        p.vx = 8 + Math.random() * 8;
+        p.vy = (Math.random() - 0.5) * 3;
+        p.size = 2 + Math.random() * 3;
+        p.color = '#e9c46a';
+        p.alpha = 0.35 + Math.random() * 0.4;
         break;
       case 'alien_aurora':
-        vx = Math.sin(Math.random() * 10) * 2;
-        vy = -1 - Math.random() * 3;
-        size = 2 + Math.random() * 4;
-        color = Math.random() > 0.5 ? '#00f5d4' : '#f72585';
-        alpha = 0.3 + Math.random() * 0.4;
+        p.vx = Math.sin(Math.random() * 10) * 2;
+        p.vy = -1 - Math.random() * 3;
+        p.size = 2 + Math.random() * 4;
+        p.color = Math.random() > 0.5 ? '#00f5d4' : '#f72585';
+        p.alpha = 0.3 + Math.random() * 0.4;
         break;
     }
-
-    return { x, y, vx, vy, size, color, alpha, life: 0, maxLife };
   }
 }
