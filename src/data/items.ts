@@ -399,5 +399,60 @@ export const ITEMS_CATALOG: Record<string, BaseItem | EphemeralArtifact> = {
     icon: '🍷',
     stackable: true,
     maxStack: 10
+  },
+
+  // --- Fase 3: Supervivencia Nocturna y Ruinas Precursoras ---
+  torch: {
+    id: 'torch',
+    name: 'Antorcha de Brea Tribal',
+    description: 'Antorcha resistente al viento. Emite un halo de luz cálido en la noche y protege contra el frío nocturno.',
+    category: 'survival',
+    icon: '🔥',
+    stackable: true,
+    maxStack: 5
+  },
+  night_orchid: {
+    id: 'night_orchid',
+    name: 'Orquídea de Luna',
+    description: 'Rara flor bioluminiscente que florece únicamente durante la noche. Restaura 40 de vida y 30 de estamina.',
+    category: 'survival',
+    icon: '🪷',
+    stackable: true,
+    maxStack: 10
+  },
+  precursor_key: {
+    id: 'precursor_key',
+    name: 'Llave de Glifos Precursores',
+    description: 'Artefacto alienígena tallado en obsidiana resonante. Desbloquea las compuertas selladas de las Cámaras del Impacto.',
+    category: 'key_relic',
+    icon: '🗝️',
+    stackable: false
+  },
+  precursor_core: {
+    id: 'precursor_core',
+    name: 'Núcleo de Energía Precursor',
+    description: 'Generador de antimateria miniatura recuperado de los guardianes alienígenas del Abismo.',
+    category: 'exotic_material',
+    icon: '⚛️',
+    stackable: true,
+    maxStack: 5
+  },
+  ancient_battery: {
+    id: 'ancient_battery',
+    name: 'Batería Estelar Alienígena',
+    description: 'Célula de energía fotónica sobrecargada hallada en cofres ancestrales.',
+    category: 'exotic_material',
+    icon: '🔋',
+    stackable: true,
+    maxStack: 5
+  },
+  charged_crystal: {
+    id: 'charged_crystal',
+    name: 'Cristal de Frecuencia Pura',
+    description: 'Gema subterránea cargada con frecuencias alienígenas para activar los pedestales de glifos.',
+    category: 'exotic_material',
+    icon: '💠',
+    stackable: true,
+    maxStack: 5
   }
 };

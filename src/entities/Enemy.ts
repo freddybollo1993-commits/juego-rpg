@@ -2,8 +2,9 @@
 
 import { Player } from './Player';
 import { soundManager } from '../audio/SoundManager';
+import { dayNightCycle } from '../systems/DayNightCycle';
 
-export type EnemyType = 'frost_beast' | 'stalking_wolf' | 'swamp_horror' | 'volcanic_scorpion' | 'crystal_stalker' | 'alien_drone';
+export type EnemyType = 'frost_beast' | 'stalking_wolf' | 'swamp_horror' | 'volcanic_scorpion' | 'crystal_stalker' | 'alien_drone' | 'precursor_golem';
 
 export interface EnemyDrop {
   itemId: string;
@@ -39,6 +40,11 @@ export class Enemy {
   public telegraphTarget: { x: number; y: number; radius: number } | null = null;
   public justDodgedFeedbackTimer: number = 0;
 
+  // Fase 3: Progresión, XP & Modificadores de Élite
+  public xpReward: number = 30;
+  public isElite: boolean = false;
+  public eliteModifier: 'none' | 'armored' | 'electrified' | 'frost_aura' = 'none';
+
   constructor(type: EnemyType, x: number, y: number) {
     this.id = `enemy_${Date.now()}_${Math.random()}`;
     this.type = type;
@@ -52,6 +58,7 @@ export class Enemy {
         this.health = 80;
         this.speed = 65;
         this.damage = 16;
+        this.xpReward = 45;
         this.drops = [{ itemId: 'fossil_ice', chance: 0.8 }, { itemId: 'raw_meat', chance: 1.0 }];
         break;
       case 'stalking_wolf':
@@ -60,6 +67,7 @@ export class Enemy {
         this.health = 55;
         this.speed = 105;
         this.damage = 14;
+        this.xpReward = 35;
         this.drops = [{ itemId: 'alpha_fur', chance: 0.8 }, { itemId: 'raw_meat', chance: 1.0 }];
         break;
       case 'swamp_horror':
@@ -68,6 +76,7 @@ export class Enemy {
         this.health = 70;
         this.speed = 50;
         this.damage = 15;
+        this.xpReward = 40;
         this.drops = [{ itemId: 'abyssal_gland', chance: 0.8 }, { itemId: 'phosphor_mud', chance: 0.6 }];
         break;
       case 'volcanic_scorpion':
@@ -76,6 +85,7 @@ export class Enemy {
         this.health = 75;
         this.speed = 80;
         this.damage = 18;
+        this.xpReward = 50;
         this.drops = [{ itemId: 'volcanic_pyrite', chance: 0.8 }, { itemId: 'crystallized_saltpeter', chance: 0.6 }];
         break;
       case 'crystal_stalker':
@@ -84,6 +94,7 @@ export class Enemy {
         this.health = 65;
         this.speed = 85;
         this.damage = 16;
+        this.xpReward = 45;
         this.drops = [{ itemId: 'resonant_crystal', chance: 0.8 }, { itemId: 'luminescent_mycelium', chance: 0.7 }];
         break;
       case 'alien_drone':
@@ -92,7 +103,25 @@ export class Enemy {
         this.health = 90;
         this.speed = 95;
         this.damage = 22;
-        this.drops = [];
+        this.xpReward = 65;
+        this.drops = [{ itemId: 'ancient_battery', chance: 0.4 }];
+        break;
+      case 'precursor_golem':
+        this.name = 'Gólem Guardián Precursor (Élite)';
+        this.width = 46;
+        this.height = 46;
+        this.maxHealth = 180;
+        this.health = 180;
+        this.speed = 50;
+        this.damage = 25;
+        this.isElite = true;
+        this.eliteModifier = 'armored';
+        this.xpReward = 140;
+        this.drops = [
+          { itemId: 'precursor_core', chance: 1.0 },
+          { itemId: 'charged_crystal', chance: 0.8 },
+          { itemId: 'ancient_battery', chance: 0.6 }
+        ];
         break;
     }
   }
@@ -192,6 +221,8 @@ export class Enemy {
 
     if (this.health <= 0) {
       this.isAlive = false;
+      // Award XP to player with night-time predator bonus (Fase 3.1 & 3.2)
+      player.gainXP(this.xpReward * dayNightCycle.getXPMultiplier());
       // Drop loot into player inventory or nearby
       for (const drop of this.drops) {
         if (Math.random() <= drop.chance) {
@@ -329,6 +360,35 @@ export class Enemy {
       ctx.beginPath();
       ctx.arc(screenX, screenY, 4, 0, Math.PI * 2);
       ctx.fill();
+    } else if (this.type === 'precursor_golem') {
+      // Obsidian armored body with alien conduits
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(screenX - 22, screenY - 22, 44, 44);
+
+      // Glowing power conduits
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(screenX - 18, screenY - 18, 36, 36);
+
+      // Core pulsating crystal
+      const pulse = Math.sin(Date.now() * 0.006) * 2;
+      ctx.fillStyle = '#06b6d4';
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, 8 + pulse, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Nocturnal Predator Glowing Eyes (Fase 3.2)
+    if (dayNightCycle.isNight() && this.isAlive) {
+      ctx.save();
+      ctx.fillStyle = this.isElite ? '#f43f5e' : '#f59e0b';
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(screenX - 6, screenY - 8, 2.5, 0, Math.PI * 2);
+      ctx.arc(screenX + 6, screenY - 8, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
 
     // Health Bar

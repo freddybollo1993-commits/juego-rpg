@@ -138,6 +138,30 @@ export const CRAFTING_RECIPES: CraftingRecipe[] = [
     description: 'Tintura Térmica: Aumenta la temperatura +35° y previene hipotermia.',
     isUnlocked: true
   },
+  {
+    id: 'craft_torch',
+    outputItemId: 'torch',
+    outputAmount: 1,
+    ingredients: [
+      { itemId: 'branches', amount: 2 },
+      { itemId: 'ancient_resin', amount: 1 }
+    ],
+    category: 'survival',
+    description: 'Antorcha de Brea: Ilumina la noche profunda y preserva la temperatura corporal.',
+    isUnlocked: true
+  },
+  {
+    id: 'craft_precursor_key',
+    outputItemId: 'precursor_key',
+    outputAmount: 1,
+    ingredients: [
+      { itemId: 'charged_crystal', amount: 2 },
+      { itemId: 'ancient_battery', amount: 1 }
+    ],
+    category: 'alien_device',
+    description: 'Llave de Glifos Precursores: Desbloquea las cámaras selladas del Abismo.',
+    isUnlocked: true
+  },
 
   // --- Ephemeral Special Objects (Sec. 7.4) ---
   {

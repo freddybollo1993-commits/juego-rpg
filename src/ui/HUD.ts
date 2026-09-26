@@ -5,6 +5,7 @@ import { ABILITIES_DATA } from '../data/abilities';
 import { ITEMS_CATALOG, EphemeralArtifact } from '../data/items';
 import { RegionData } from '../data/regions';
 import { questSystem } from '../systems/QuestSystem';
+import { dayNightCycle } from '../systems/DayNightCycle';
 
 export class HUD {
   public onSacrificeClick?: () => void;
@@ -49,15 +50,22 @@ export class HUD {
   }
 
   private drawTopBar(ctx: CanvasRenderingContext2D, width: number, region: RegionData, player: Player) {
-    const boxW = 360;
+    const boxW = 390;
     const boxX = (width - boxW) / 2;
 
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-    ctx.fillRect(boxX, 8, boxW, 40);
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.fillRect(boxX, 8, boxW, 42);
     ctx.strokeStyle = '#d4af37';
     ctx.lineWidth = 1;
-    ctx.strokeRect(boxX, 8, boxW, 40);
+    ctx.strokeRect(boxX, 8, boxW, 42);
 
+    // Left: Day/Night Clock
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${dayNightCycle.getPhaseIcon()} ${dayNightCycle.getTimeString()}`, boxX + 10, 26);
+
+    // Center: Region Name & Title
     ctx.fillStyle = '#f8fafc';
     ctx.font = 'bold 13px sans-serif';
     ctx.textAlign = 'center';
@@ -67,6 +75,23 @@ export class HUD {
     ctx.font = '10px sans-serif';
     ctx.fillText(`${region.titleTag} • ${region.settlementName}`, width / 2, 38);
 
+    // Right: Level and Available Talent Points
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText(`Nv.${player.level}`, boxX + boxW - 32, 22);
+
+    if (player.talentPoints > 0) {
+      const pulse = Math.sin(Date.now() * 0.008) * 0.2 + 0.8;
+      ctx.fillStyle = `rgba(250, 204, 21, ${pulse})`;
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText(`⭐+${player.talentPoints} Talento`, boxX + boxW - 32, 36);
+    } else {
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '9px sans-serif';
+      ctx.fillText(`${player.xp}/${player.xpToNextLevel}XP`, boxX + boxW - 32, 36);
+    }
+
     // Chokepoint Compass Indicator Arrow
     if (region.chokepoints.length > 0) {
       const closestCp = region.chokepoints[0];
@@ -75,7 +100,7 @@ export class HUD {
       const angle = Math.atan2(dy, dx);
 
       ctx.save();
-      ctx.translate(boxX + boxW - 22, 28);
+      ctx.translate(boxX + boxW - 14, 28);
       ctx.rotate(angle);
       ctx.fillStyle = '#d4af37';
       ctx.beginPath();

@@ -74,6 +74,12 @@ function initApp() {
     resizeCanvas();
   });
 
+  // Talent Tree Modal Button (Fase 3.1)
+  const talentBtn = document.getElementById('btn-talents');
+  talentBtn?.addEventListener('click', () => {
+    game.openTalents();
+  });
+
   // Test World Sandbox Button
   const testWorldBtn = document.getElementById('btn-test-world');
   testWorldBtn?.addEventListener('click', () => {

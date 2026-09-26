@@ -24,6 +24,8 @@ import { soundManager } from '../audio/SoundManager';
 import { questSystem } from '../systems/QuestSystem';
 import { Arrow } from '../entities/Arrow';
 import { particleSystem } from '../systems/ParticleSystem';
+import { dayNightCycle } from '../systems/DayNightCycle';
+import { talentModal } from '../ui/TalentModal';
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -222,6 +224,7 @@ export class Game {
       this.enemies.push(new Enemy('stalking_wolf', 1100, 1500));
       this.worldObjects.push(new WorldObject('forage_bush', 900, 1100));
       this.worldObjects.push(new WorldObject('forage_bush', 1500, 600));
+      this.worldObjects.push(new WorldObject('night_orchid_plant', 1350, 1100));
       // Nomad Woodcarving Workbench
       this.worldObjects.push(new WorldObject('workbench', reg.width / 2 - 90, reg.height / 2 - 20));
     } else if (reg.biomeType === 'swamp') {
@@ -229,6 +232,7 @@ export class Game {
       this.enemies.push(new Enemy('swamp_horror', 1800, 900));
       this.enemies.push(new Enemy('swamp_horror', 1400, 1400));
       this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
+      this.worldObjects.push(new WorldObject('night_orchid_plant', 900, 650));
       // Morgath Alchemical Cauldron
       this.worldObjects.push(new WorldObject('alchemy_station', reg.width / 2 - 90, reg.height / 2 - 20));
     } else if (reg.biomeType === 'canyon') {
@@ -244,6 +248,16 @@ export class Game {
       this.enemies.push(new Enemy('crystal_stalker', 1100, 1400));
       this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
       this.worldObjects.push(new WorldObject('anvil', reg.width / 2 - 90, reg.height / 2 - 20));
+
+      // --- Ruinas Precursoras (Fase 3.3 Dungeon Chamber) ---
+      // 3 Glyph Pedestals surrounding the Ancestral Chest
+      this.worldObjects.push(new WorldObject('precursor_pedestal', 1400, 600));
+      this.worldObjects.push(new WorldObject('precursor_pedestal', 1600, 600));
+      this.worldObjects.push(new WorldObject('precursor_pedestal', 1500, 480));
+      this.worldObjects.push(new WorldObject('precursor_chest', 1500, 560));
+
+      // Elite Precursor Golem guarding the chamber!
+      this.enemies.push(new Enemy('precursor_golem', 1500, 640));
     } else if (reg.biomeType === 'alien_core') {
       questSystem.updateObjective('celestial_reckoning', 'enter_core', 1);
       if (!this.bossDefeated) {
@@ -310,6 +324,10 @@ export class Game {
       this.input.radialPressed = false;
       this.openRadialMenu();
     }
+    if (this.input.talentPressed) {
+      this.input.talentPressed = false;
+      this.openTalents();
+    }
 
     if (
       this.codexModal.isOpen() ||
@@ -317,10 +335,15 @@ export class Game {
       this.dialogueModal.isOpen() ||
       this.endingModal.isOpen() ||
       this.radialMenu.isOpen() ||
-      this.testWorldModal.isOpen()
+      this.testWorldModal.isOpen() ||
+      talentModal.isOpen
     ) {
       return; // Pause world updates during modal interactions
     }
+
+    // Planetary Day/Night Cycle Tick (Fase 3.2)
+    dayNightCycle.update(delta);
+    const effectiveDelta = this.player.isBulletTime ? delta * 0.35 : delta;
 
     // DevTools / Sandbox overrides
     if (this.testWorldModal.godMode) {
@@ -467,7 +490,7 @@ export class Game {
     // Update Enemies
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
-      enemy.update(this.player, delta);
+      enemy.update(this.player, effectiveDelta);
       if (!enemy.isAlive) {
         if (this.currentRegion.tribeId) {
           const tribe = TRIBES_DATA[this.currentRegion.tribeId];
@@ -486,7 +509,7 @@ export class Game {
 
     // Update Final Boss
     if (this.boss && this.boss.isAlive) {
-      this.boss.update(this.player, delta, (newPhase: BossPhase) => {
+      this.boss.update(this.player, effectiveDelta, (newPhase: BossPhase) => {
         if (newPhase === 'cryogenic') {
           this.weatherSystem.setWeather('blizzard');
           this.showNotification('¡El coloso activa la FASE CRIOGÉNICA! (Ventisca Ártica)');
@@ -512,8 +535,9 @@ export class Game {
       }
     }
 
-    // Survival Tick
-    this.survivalSystem.update(this.player, this.currentRegion, isNearCampfire, false, delta);
+    // Survival Tick with Night and Torch Protection
+    const isColdProtected = isNearCampfire || this.player.isHoldingTorch;
+    this.survivalSystem.update(this.player, this.currentRegion, isColdProtected, false, delta);
 
     if (this.player.vitals.health <= 0 && !this.testWorldModal.godMode) {
       this.handlePlayerDeath();
@@ -628,10 +652,15 @@ export class Game {
   }
 
   public triggerDodgeAction(): boolean {
-    const success = this.player.dodge(this.input.moveX, this.input.moveY);
+    const success = this.player.dodge(this.input.moveX, this.input.moveY, this.enemies);
     if (success) {
-      this.showNotification('¡Rodar táctico! (I-Frames de invulnerabilidad)');
-    } else if (this.player.vitals.stamina < 18) {
+      if (this.player.isBulletTime) {
+        particleSystem.spawnSparks(this.player.x, this.player.y, '#ffd700', 18);
+        this.showNotification('⚡ ¡ESQUIVA PERFECTA! (Tiempo Ralentizado & +30 Estamina)');
+      } else {
+        this.showNotification('¡Rodar táctico! (I-Frames de invulnerabilidad)');
+      }
+    } else if (this.player.vitals.stamina < 14) {
       this.showNotification('¡Estamina insuficiente para esquivar!');
     }
     return success;
@@ -693,12 +722,25 @@ export class Game {
     });
   }
 
+  public openTalents() {
+    talentModal.open(this.player);
+  }
+
   public openTestWorld() {
     this.testWorldModal.show();
   }
 
   public openRadialMenu() {
     const options: RadialOption[] = [
+      {
+        id: 'talents',
+        label: 'Maestría Tribal',
+        icon: '🧬',
+        color: '#a855f7',
+        action: () => {
+          this.openTalents();
+        }
+      },
       {
         id: 'attack',
         label: 'Atacar',
@@ -1045,27 +1087,61 @@ export class Game {
   }
 
   private drawLightingMask(ctx: CanvasRenderingContext2D, width: number, height: number) {
-    const lightLevel = this.currentRegion.ambientLight;
+    const regionDarkness = 1.0 - this.currentRegion.ambientLight;
+    const nightDarkness = dayNightCycle.getAmbientDarkness();
+    const totalDarkness = Math.min(0.92, Math.max(regionDarkness, nightDarkness));
 
     const hasSpectralVision = this.player.hasEquippedAbility('iron_grip');
     const hasSpectralLantern = this.player.isEphemeralActive('spectral_lantern');
+    const isHoldingTorch = this.player.isHoldingTorch;
 
-    if (lightLevel >= 0.8 && !hasSpectralLantern) return;
+    if (totalDarkness <= 0.08 && !hasSpectralLantern && !isHoldingTorch) return;
 
     ctx.save();
-    const targetAlpha = hasSpectralVision ? 0.3 : hasSpectralLantern ? 0.2 : (1.0 - lightLevel);
+    let targetAlpha = hasSpectralVision ? 0.35 : hasSpectralLantern ? 0.25 : totalDarkness;
 
     const playerScreenX = this.player.x - this.cameraX;
     const playerScreenY = this.player.y - this.cameraY;
 
-    const lightRadius = hasSpectralLantern ? 280 : hasSpectralVision ? 180 : 90;
+    // Torch / Lantern light radius
+    let lightRadius = 90;
+    if (hasSpectralLantern) {
+      lightRadius = 300;
+    } else if (isHoldingTorch) {
+      const flicker = Math.sin(Date.now() * 0.015) * 6;
+      lightRadius = 240 + flicker;
+      targetAlpha = Math.min(targetAlpha, 0.76);
+    } else if (hasSpectralVision) {
+      lightRadius = 180;
+    }
 
     const grad = ctx.createRadialGradient(playerScreenX, playerScreenY, 15, playerScreenX, playerScreenY, lightRadius);
-    grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    grad.addColorStop(0, isHoldingTorch ? 'rgba(255, 170, 50, 0.08)' : 'rgba(0, 0, 0, 0)');
+    grad.addColorStop(0.65, isHoldingTorch ? 'rgba(255, 120, 30, 0.04)' : 'rgba(0, 0, 0, 0)');
     grad.addColorStop(1, `rgba(5, 5, 12, ${targetAlpha})`);
 
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
+
+    // Also illuminate around active campfires
+    for (const obj of this.worldObjects) {
+      if (obj.type === 'campfire' && obj.isLit) {
+        const fireScreenX = obj.x - this.cameraX;
+        const fireScreenY = obj.y - this.cameraY;
+        if (fireScreenX >= -150 && fireScreenX <= width + 150 && fireScreenY >= -150 && fireScreenY <= height + 150) {
+          const fireGrad = ctx.createRadialGradient(fireScreenX, fireScreenY, 10, fireScreenX, fireScreenY, 160);
+          fireGrad.addColorStop(0, 'rgba(255, 180, 50, 0.35)');
+          fireGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.save();
+          ctx.globalCompositeOperation = 'destination-out';
+          ctx.fillStyle = fireGrad;
+          ctx.beginPath();
+          ctx.arc(fireScreenX, fireScreenY, 160, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
 
     ctx.restore();
   }

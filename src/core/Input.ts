@@ -12,6 +12,7 @@ export class Input {
   public inventoryPressed: boolean = false;
   public sacrificePressed: boolean = false;
   public radialPressed: boolean = false;
+  public talentPressed: boolean = false;
 
   // Touch Virtual Joystick
   private joystickActive: boolean = false;
@@ -42,6 +43,7 @@ export class Input {
       if (e.code === 'KeyI') this.inventoryPressed = true;
       if (e.code === 'KeyR') this.sacrificePressed = true;
       if (e.code === 'KeyQ') this.radialPressed = true;
+      if (e.code === 'KeyT' || e.code === 'KeyP') this.talentPressed = true;
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.isRunning = true;
     });
 
@@ -57,6 +59,7 @@ export class Input {
       if (e.code === 'KeyI') this.inventoryPressed = false;
       if (e.code === 'KeyR') this.sacrificePressed = false;
       if (e.code === 'KeyQ') this.radialPressed = false;
+      if (e.code === 'KeyT' || e.code === 'KeyP') this.talentPressed = false;
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.isRunning = false;
     });
   }

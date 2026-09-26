@@ -2,6 +2,8 @@ import { VitalStatus } from '../systems/SurvivalSystem';
 import { ITEMS_CATALOG, EphemeralArtifact } from '../data/items';
 import { soundManager } from '../audio/SoundManager';
 import { Arrow, ArrowType } from './Arrow';
+import { TalentSystem } from '../systems/TalentSystem';
+import type { Enemy } from './Enemy';
 
 export interface ActiveEphemeralSlot {
   itemId: string;
@@ -72,13 +74,45 @@ export class Player {
   // Tactical Bow Ranged Combat (Fase 2.1)
   public bowCooldown: number = 0;
 
+  // --- Character Progression & Tribal Mastery (Fase 3.1) ---
+  public level: number = 1;
+  public xp: number = 0;
+  public xpToNextLevel: number = 100;
+  public talentPoints: number = 0;
+  public talentSystem: TalentSystem = new TalentSystem();
+
+  // Bullet-Time Perfect Dodge state
+  public isBulletTime: boolean = false;
+  public bulletTimeTimer: number = 0;
+
+  // --- Portable Torch & Nocturnal Survival (Fase 3.2) ---
+  public isHoldingTorch: boolean = false;
+  public torchTimer: number = 0;
+
   constructor() {
-    // Initial Prologue Inventory: The Ancestral Rock & Hunting Gear
+    // Initial Prologue Inventory: The Ancestral Rock, Hunting Gear & Torch
     this.addItem('ancestral_rock', 1);
     this.addItem('tribal_bow', 1);
     this.addItem('flint_arrow', 20);
     this.addItem('fire_arrow', 8);
     this.addItem('frost_arrow', 8);
+    this.addItem('torch', 1);
+  }
+
+  public gainXP(amount: number): boolean {
+    this.xp += Math.round(amount);
+    let leveledUp = false;
+    while (this.xp >= this.xpToNextLevel) {
+      this.xp -= this.xpToNextLevel;
+      this.level++;
+      this.talentPoints++;
+      this.xpToNextLevel = Math.round(this.xpToNextLevel * 1.5);
+      this.vitals.health = Math.min(100, this.vitals.health + 30);
+      this.vitals.stamina = 100;
+      soundManager.playRunicTuning();
+      leveledUp = true;
+    }
+    return leveledUp;
   }
 
   public shootBow(targetAngle?: number): Arrow | null {
@@ -101,6 +135,13 @@ export class Player {
       return null; // Out of arrows
     }
 
+    // Archery Talent: 35% chance to retrieve arrow intact
+    if (Math.random() < this.talentSystem.getArrowRetrievalChance()) {
+      if (arrowType === 'fire') this.addItem('fire_arrow', 1);
+      else if (arrowType === 'frost') this.addItem('frost_arrow', 1);
+      else if (arrowType === 'flint') this.addItem('flint_arrow', 1);
+    }
+
     this.vitals.stamina = Math.max(0, this.vitals.stamina - 8);
     this.bowCooldown = 0.42;
 
@@ -115,21 +156,48 @@ export class Player {
     }
 
     soundManager.playBowRelease();
-    return new Arrow(this.x, this.y - 6, angle, arrowType);
+    const arrow = new Arrow(this.x, this.y - 6, angle, arrowType);
+
+    // Apply Talent multipliers
+    arrow.damage = Math.round(arrow.damage * this.talentSystem.getArcheryDamageMultiplier());
+    arrow.speed = Math.round(arrow.speed * this.talentSystem.getArrowSpeedMultiplier());
+    arrow.vx = Math.cos(angle) * arrow.speed;
+    arrow.vy = Math.sin(angle) * arrow.speed;
+
+    // Critical strike chance
+    if (Math.random() < this.talentSystem.getBowCritChance()) {
+      arrow.damage *= 2;
+    }
+
+    return arrow;
   }
 
-  public dodge(dirX?: number, dirY?: number): boolean {
-    if (this.dashCooldown > 0 || this.isDashing || this.vitals.stamina < 18) {
+  public dodge(dirX?: number, dirY?: number, nearbyEnemies: Enemy[] = []): boolean {
+    const staminaCost = Math.round(18 * (1 - this.talentSystem.getStaminaCostReduction()));
+    if (this.dashCooldown > 0 || this.isDashing || this.vitals.stamina < staminaCost) {
       return false;
     }
 
     // Drain stamina
-    this.vitals.stamina = Math.max(0, this.vitals.stamina - 18);
+    this.vitals.stamina = Math.max(0, this.vitals.stamina - staminaCost);
 
     this.isDashing = true;
     this.isInvulnerable = true;
     this.dashTimer = 0.24; // 240ms invulnerability window
     this.dashCooldown = 0.65; // 650ms cooldown before next roll
+
+    // Perfect Dodge check (Senda del Guerrero tier 3)
+    if (this.talentSystem.hasPerfectDodge() && nearbyEnemies.length > 0) {
+      const nearAttackingEnemy = nearbyEnemies.find(e => 
+        e.isAlive && (e.isTelegraphing || Math.hypot(this.x - e.x, this.y - e.y) <= 48)
+      );
+      if (nearAttackingEnemy) {
+        this.isBulletTime = true;
+        this.bulletTimeTimer = 1.2;
+        this.vitals.stamina = Math.min(100, this.vitals.stamina + 30);
+        soundManager.playRunicTuning();
+      }
+    }
 
     let dx = dirX !== undefined && dirX !== 0 ? dirX : this.vx;
     let dy = dirY !== undefined && dirY !== 0 ? dirY : this.vy;
@@ -195,6 +263,22 @@ export class Player {
     // Invisibility timer
     if (this.invisibilityTimer > 0) {
       this.invisibilityTimer -= delta;
+    }
+
+    // Bullet-time timer (Fase 3.1)
+    if (this.isBulletTime) {
+      this.bulletTimeTimer -= delta;
+      if (this.bulletTimeTimer <= 0) {
+        this.isBulletTime = false;
+      }
+    }
+
+    // Portable Torch timer (Fase 3.2)
+    if (this.isHoldingTorch) {
+      this.torchTimer -= delta;
+      if (this.torchTimer <= 0) {
+        this.isHoldingTorch = false;
+      }
     }
 
     // Attack cooldowns
@@ -386,7 +470,7 @@ export class Player {
   }
 
   public getMeleeDamage(): number {
-    let dmg = 25;
+    let dmg = 25 + this.talentSystem.getMeleeDamageBonus();
     if (this.isEphemeralActive('sulfur_imbued_blade')) {
       dmg += 35; // Sulfur burn damage
     }
@@ -492,6 +576,19 @@ export class Player {
       this.maxInventorySlots = 24;
       this.removeItem(itemId, 1);
       soundManager.playRunicTuning();
+      return true;
+    } else if (itemId === 'torch') {
+      this.isHoldingTorch = true;
+      this.torchTimer = 300; // 5 mins of torchlight
+      this.removeItem(itemId, 1);
+      soundManager.playCampfire();
+      return true;
+    } else if (itemId === 'night_orchid') {
+      const healMult = this.talentSystem.getConsumableEffectivenessMultiplier();
+      this.vitals.health = Math.min(100, this.vitals.health + Math.round(40 * healMult));
+      this.vitals.stamina = Math.min(100, this.vitals.stamina + 30);
+      this.removeItem(itemId, 1);
+      soundManager.playForage();
       return true;
     }
 
@@ -606,6 +703,32 @@ export class Player {
       ctx.beginPath();
       ctx.arc(screenX, screenY - 6, 26 + Math.sin(Date.now() * 0.008) * 3, 0, Math.PI * 2);
       ctx.stroke();
+    }
+
+    // Portable Torch in off-hand (Fase 3.2)
+    if (this.isHoldingTorch) {
+      const torchOffX = this.facing === 'left' ? screenX - 16 : screenX + 16;
+      const torchOffY = screenY - 8;
+
+      // Wooden handle
+      ctx.fillStyle = '#6d4c41';
+      ctx.fillRect(torchOffX - 2, torchOffY - 4, 4, 14);
+
+      // Torch head
+      ctx.fillStyle = '#263238';
+      ctx.fillRect(torchOffX - 4, torchOffY - 8, 8, 5);
+
+      // Flickering Flame
+      const flameFlicker = Math.sin(Date.now() * 0.02) * 2;
+      ctx.fillStyle = '#ff7043';
+      ctx.beginPath();
+      ctx.arc(torchOffX, torchOffY - 10 + flameFlicker, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffeb3b';
+      ctx.beginPath();
+      ctx.arc(torchOffX, torchOffY - 10 + flameFlicker, 3.5, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     ctx.restore();

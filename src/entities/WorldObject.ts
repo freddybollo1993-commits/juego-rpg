@@ -3,6 +3,7 @@
 import { ITEMS_CATALOG } from '../data/items';
 import { Player } from './Player';
 import { soundManager } from '../audio/SoundManager';
+import { dayNightCycle } from '../systems/DayNightCycle';
 
 export type WorldObjectType =
   | 'campfire'
@@ -16,7 +17,10 @@ export type WorldObjectType =
   | 'anvil'
   | 'tanner'
   | 'alchemy_station'
-  | 'bear_trap';
+  | 'bear_trap'
+  | 'precursor_pedestal'
+  | 'precursor_chest'
+  | 'night_orchid_plant';
 
 export class WorldObject {
   public id: string;
@@ -27,6 +31,7 @@ export class WorldObject {
   public height: number;
   public isInteractable: boolean = true;
   public isDepleted: boolean = false;
+  public isActivated: boolean = false;
   public dropItemId?: string;
   public dropAmount: number = 1;
 
@@ -103,6 +108,20 @@ export class WorldObject {
         this.width = 28;
         this.height = 28;
         break;
+      case 'precursor_pedestal':
+        this.width = 36;
+        this.height = 44;
+        break;
+      case 'precursor_chest':
+        this.width = 44;
+        this.height = 32;
+        break;
+      case 'night_orchid_plant':
+        this.width = 32;
+        this.height = 32;
+        this.dropItemId = 'night_orchid';
+        this.dropAmount = 1;
+        break;
     }
   }
 
@@ -114,6 +133,9 @@ export class WorldObject {
       case 'alchemy_station': return '🧪 Alambique y Caldero Alquímico';
       case 'bear_trap': return '⚙️ Trampa para Osos y Bestias';
       case 'campfire': return '🔥 Hoguera';
+      case 'precursor_pedestal': return '💠 Pedestal de Glifos Precursores';
+      case 'precursor_chest': return '🗝️ Cofre Ancestral Sellado';
+      case 'night_orchid_plant': return '🪷 Orquídea de Luna (Bioluminiscente)';
       default: return this.type;
     }
   }
@@ -152,6 +174,44 @@ export class WorldObject {
       player.addItem('bear_trap', 1);
       soundManager.playForage();
       return 'Desarmaste y recogiste la Trampa para Bestias.';
+    }
+
+    if (this.type === 'precursor_pedestal') {
+      if (this.isActivated) {
+        return 'Pedestal de Glifos ya activado: El núcleo irradia luz cian.';
+      }
+      this.isActivated = true;
+      player.gainXP(25);
+      soundManager.playRunicTuning();
+      return '¡Pedestal de Glifos activado! La energía alienígena fluye (+25 XP).';
+    }
+
+    if (this.type === 'precursor_chest') {
+      if (this.isDepleted) {
+        return 'El Cofre Ancestral ya ha sido saqueado.';
+      }
+      if (player.hasItem('precursor_key')) {
+        this.isDepleted = true;
+        player.removeItem('precursor_key', 1);
+        player.addItem('precursor_core', 1);
+        player.addItem('ancient_battery', 2);
+        player.gainXP(150);
+        soundManager.playRunicLock();
+        return '¡Cofre Ancestral abierto con la Llave! Obtuviste un Núcleo Precursor, 2 Baterías Estelares y +150 XP.';
+      } else {
+        return 'Cofre sellado por tecnología alienígena. Necesitas la Llave de Glifos Precursores.';
+      }
+    }
+
+    if (this.type === 'night_orchid_plant') {
+      if (!dayNightCycle.isNight()) {
+        return 'La Orquídea de Luna permanece cerrada durante el día. Florece y brilla únicamente de noche.';
+      }
+      this.isDepleted = true;
+      player.addItem('night_orchid', 1);
+      player.gainXP(20);
+      soundManager.playForage();
+      return 'Recolectaste una rara Orquídea de Luna (+20 XP).';
     }
 
     if (this.type === 'campfire') {
@@ -410,6 +470,65 @@ export class WorldObject {
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2;
         ctx.fillRect(screenX + Math.cos(a) * 10 - 2, screenY + Math.sin(a) * 10 - 2, 4, 4);
+      }
+    } else if (this.type === 'precursor_pedestal') {
+      // Obsidian Pillar
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(screenX - 14, screenY - 16, 28, 32);
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(screenX - 14, screenY - 16, 28, 32);
+
+      // Glyphs & Floating Energy Sphere
+      const glowColor = this.isActivated ? '#38bdf8' : '#1e3a8a';
+      ctx.save();
+      if (this.isActivated) {
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 12;
+      }
+      ctx.fillStyle = glowColor;
+      ctx.beginPath();
+      ctx.arc(screenX, screenY - 18, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } else if (this.type === 'precursor_chest') {
+      // Precursor Metal Chest
+      ctx.fillStyle = this.isDepleted ? '#334155' : '#1e293b';
+      ctx.fillRect(screenX - 18, screenY - 10, 36, 20);
+
+      // Energy Inlay Lines
+      ctx.strokeStyle = this.isDepleted ? '#64748b' : '#06b6d4';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(screenX - 16, screenY - 8, 32, 16);
+
+      // Center Keyhole / Core Gem
+      ctx.fillStyle = this.isDepleted ? '#475569' : '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, 4, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.type === 'night_orchid_plant') {
+      const isNight = dayNightCycle.isNight();
+      if (isNight && !this.isDepleted) {
+        // Glowing Night Orchid Flower
+        ctx.save();
+        ctx.shadowColor = '#e879f9';
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = '#f472b6';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY - 4, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#c084fc';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY - 4, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else {
+        // Closed bud or depleted stem
+        ctx.fillStyle = '#166534';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 5, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
 
