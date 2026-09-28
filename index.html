@@ -15,11 +15,20 @@
   <div id="app-container">
     <canvas id="game-canvas"></canvas>
 
-    <!-- Dedicated Touch Zone for Virtual Joystick (Left Side of Screen) -->
-    <div id="touch-controls-left" class="touch-controls-left"></div>
+    <!-- Dedicated Touch Zone with 2.5D Isometric D-Pad (Left Side of Screen) -->
+    <div id="touch-controls-left" class="touch-controls-left">
+      <div class="iso-dpad" id="iso-dpad">
+        <button class="iso-btn iso-btn-nw" id="btn-iso-nw" title="Moverse al Noroeste (↖)">↖</button>
+        <button class="iso-btn iso-btn-ne" id="btn-iso-ne" title="Moverse al Noreste (↗)">↗</button>
+        <button class="iso-btn iso-btn-wait" id="btn-iso-wait" title="Esperar / Descansar Turno (⏳)">⏳</button>
+        <button class="iso-btn iso-btn-sw" id="btn-iso-sw" title="Moverse al Suroeste (↙)">↙</button>
+        <button class="iso-btn iso-btn-se" id="btn-iso-se" title="Moverse al Sureste (↘)">↘</button>
+      </div>
+    </div>
 
     <!-- Top Status Bar Controls -->
     <div class="top-controls">
+      <button class="icon-btn btn-world-map" id="btn-world-map" title="Cartografía 2.5D de los 7 Biomas">🗺️ Mapa 2.5D</button>
       <button class="icon-btn btn-talents" id="btn-talents" title="Árbol de Talentos y Maestría Tribal">🧬 Talentos</button>
       <button class="icon-btn btn-test-world" id="btn-test-world" title="Abrir Mundo de Prueba & Galería de Arte">🧪 Mundo de Prueba</button>
       <button class="icon-btn" id="btn-reset-game" title="Reiniciar Partida y Limpiar Guardado">🔄 Reiniciar</button>
@@ -51,19 +60,19 @@
 
       <!-- Lower row: Combat & Actions -->
       <div class="touch-row">
+        <button class="touch-action-btn btn-map" id="btn-touch-map" title="Cartografía 2.5D de los 7 Biomas">
+          <span>🗺️</span>
+          <span class="label">Mapa</span>
+        </button>
+        <button class="touch-action-btn btn-wait" id="btn-touch-wait" title="Esperar / Descansar Turno (Recupera Estamina)">
+          <span>⏳</span>
+          <span class="label">Descanso</span>
+        </button>
         <button class="touch-action-btn btn-sacrifice" id="btn-touch-sacrifice" title="Detonar Sacrificio">
           <span>💥</span>
           <span class="label">Sacrificio</span>
         </button>
-        <button class="touch-action-btn btn-dodge" id="btn-touch-dodge" title="Rodar / Esquivar (I-Frames de invulnerabilidad)">
-          <span>💨</span>
-          <span class="label">Rodar</span>
-        </button>
-        <button class="touch-action-btn" id="btn-touch-sprint" title="Sprint">
-          <span>⚡</span>
-          <span class="label">Correr</span>
-        </button>
-        <button class="touch-action-btn btn-attack" id="btn-touch-attack" title="Atacar / Recolectar">
+        <button class="touch-action-btn btn-attack" id="btn-touch-attack" title="Atacar Enemigo Adyacente / Recolectar">
           <span>⚔️</span>
           <span class="label">Golpe</span>
         </button>

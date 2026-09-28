@@ -19,6 +19,9 @@ import { ChokepointScreen } from '../ui/ChokepointScreen';
 import { EndingModal } from '../ui/EndingModal';
 import { RadialMenu, RadialOption } from '../ui/RadialMenu';
 import { TestWorldModal } from '../ui/TestWorldModal';
+import { WorldMapModal } from '../ui/WorldMapModal';
+import { IsometricGrid } from './IsometricGrid';
+import { TurnSystem } from './TurnSystem';
 import { assetManager } from './AssetManager';
 import { soundManager } from '../audio/SoundManager';
 import { questSystem } from '../systems/QuestSystem';
@@ -32,6 +35,15 @@ export class Game {
   private ctx: CanvasRenderingContext2D;
   private lastTime: number = 0;
   private isRunning: boolean = true;
+
+  // 2.5D Isometric Engine & Turn System (The Wild Darkness style)
+  public grid: IsometricGrid;
+  public turnSystem: TurnSystem;
+  public worldMapModal: WorldMapModal;
+  public playerGx: number = 12;
+  public playerGy: number = 12;
+  public targetPlayerX: number = 0;
+  public targetPlayerY: number = 0;
 
   // Systems & Managers
   public player: Player;
@@ -72,6 +84,11 @@ export class Game {
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
+
+    // 2.5D Isometric Engine & Turn-Based Core
+    this.grid = new IsometricGrid(24, 24);
+    this.turnSystem = new TurnSystem();
+    this.worldMapModal = new WorldMapModal();
 
     this.player = new Player();
     this.input = new Input(canvas);
@@ -164,113 +181,136 @@ export class Game {
     soundManager.setBiomeMusic(reg.biomeType);
     this.weatherSystem.setWeather(reg.weatherType);
 
-    // Initial position
+    // 1. Generate 2.5D Isometric Grid Slabs for Region
+    this.grid.generateForRegion(reg);
+
+    // 2. Set player grid position & center screen coordinates
     if (resetPosition) {
-      this.player.x = reg.width / 2;
-      this.player.y = reg.height / 2;
+      this.playerGx = 12;
+      this.playerGy = 12;
     }
+    const playerIso = IsometricGrid.gridToScreen(this.playerGx, this.playerGy);
+    this.player.x = playerIso.x;
+    this.player.y = playerIso.y;
+    this.targetPlayerX = playerIso.x;
+    this.targetPlayerY = playerIso.y;
+
+    // Entity placement helpers
+    const addObj = (type: any, gx: number, gy: number, isLit?: boolean, dropItem?: string) => {
+      const elev = (this.grid.tiles[gx] && this.grid.tiles[gx][gy]) ? this.grid.tiles[gx][gy].elevation : 0;
+      const iso = IsometricGrid.gridToScreen(gx, gy, elev);
+      const obj = new WorldObject(type, iso.x, iso.y, dropItem);
+      if (isLit !== undefined) obj.isLit = isLit;
+      this.worldObjects.push(obj);
+      return obj;
+    };
+
+    const addEnemy = (type: any, gx: number, gy: number) => {
+      const elev = (this.grid.tiles[gx] && this.grid.tiles[gx][gy]) ? this.grid.tiles[gx][gy].elevation : 0;
+      const iso = IsometricGrid.gridToScreen(gx, gy, elev);
+      const enemy = new Enemy(type, iso.x, iso.y);
+      this.enemies.push(enemy);
+      return enemy;
+    };
 
     // Spawn Tribe Chief if region has one
     if (reg.tribeId && TRIBES_DATA[reg.tribeId]) {
-      this.npcs.push(new NPC(reg.tribeId, reg.width / 2 - 80, reg.height / 2 - 60));
-      this.worldObjects.push(new WorldObject('campfire', reg.width / 2 - 20, reg.height / 2 - 50));
+      const chiefIso = IsometricGrid.gridToScreen(11, 10);
+      this.npcs.push(new NPC(reg.tribeId, chiefIso.x, chiefIso.y));
+      addObj('campfire', 12, 10, true);
     }
 
-    // Spawn Region-specific Objects & Enemies
+    // Spawn Region-specific Objects & Enemies in Isometric Diorama
     if (reg.biomeType === 'beach') {
-      // Primary Landing Site (Surrounding Player Spawn at 1000, 800)
-      const tutorialFire = new WorldObject('campfire', 960, 860);
-      tutorialFire.isLit = false;
-      this.worldObjects.push(tutorialFire);
+      // Primary Landing Site (Surrounding Player Spawn at 12, 12)
+      addObj('campfire', 11, 13, false);
+      addObj('workbench', 13, 11);
+      addObj('shipwreck_debris', 9, 10);
+      addObj('shipwreck_debris', 14, 14);
+      addObj('shipwreck_debris', 8, 14);
 
-      // Starter Workbench for Early Crafting
-      this.worldObjects.push(new WorldObject('workbench', 1010, 920));
+      addObj('coastal_palm', 7, 7);
+      addObj('coastal_palm', 16, 7);
+      addObj('coastal_palm', 16, 16);
+      addObj('coastal_palm', 7, 16);
 
-      this.worldObjects.push(new WorldObject('shipwreck_debris', 920, 760));
-      this.worldObjects.push(new WorldObject('shipwreck_debris', 1080, 840));
-      this.worldObjects.push(new WorldObject('shipwreck_debris', 850, 890));
+      addObj('branch_pile', 11, 10);
+      addObj('branch_pile', 13, 13);
+      addObj('flint_rock', 14, 11);
+      addObj('flint_rock', 10, 12);
+      addObj('forage_bush', 13, 14);
+      addObj('forage_bush', 10, 14);
 
-      this.worldObjects.push(new WorldObject('coastal_palm', 900, 720));
-      this.worldObjects.push(new WorldObject('coastal_palm', 1120, 740));
-      this.worldObjects.push(new WorldObject('coastal_palm', 1040, 920));
-      this.worldObjects.push(new WorldObject('coastal_palm', 780, 840));
-
-      this.worldObjects.push(new WorldObject('branch_pile', 980, 750));
-      this.worldObjects.push(new WorldObject('branch_pile', 1050, 880));
-
-      this.worldObjects.push(new WorldObject('flint_rock', 1020, 820));
-      this.worldObjects.push(new WorldObject('flint_rock', 930, 880));
-
-      this.worldObjects.push(new WorldObject('forage_bush', 1100, 790));
-      this.worldObjects.push(new WorldObject('forage_bush', 870, 800));
-
-      // Additional Wreckage & Vegetation Spread Across Beach
-      this.worldObjects.push(new WorldObject('shipwreck_debris', 350, 750));
-      this.worldObjects.push(new WorldObject('shipwreck_debris', 1450, 650));
-      this.worldObjects.push(new WorldObject('coastal_palm', 450, 600));
-      this.worldObjects.push(new WorldObject('coastal_palm', 1350, 950));
-      this.worldObjects.push(new WorldObject('forage_bush', 600, 700));
-      this.worldObjects.push(new WorldObject('forage_bush', 1500, 800));
+      addEnemy('stalking_wolf', 5, 5);
+      addEnemy('stalking_wolf', 18, 6);
     } else if (reg.biomeType === 'frost') {
-      this.enemies.push(new Enemy('frost_beast', 600, 500));
-      this.enemies.push(new Enemy('frost_beast', 1700, 1200));
-      this.enemies.push(new Enemy('frost_beast', 1300, 1600));
-      this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
-      // Frost Clan Anvil Workstation
-      this.worldObjects.push(new WorldObject('anvil', reg.width / 2 - 90, reg.height / 2 - 20));
+      addEnemy('frost_beast', 6, 6);
+      addEnemy('frost_beast', 17, 12);
+      addEnemy('frost_beast', 13, 16);
+      addObj('campfire', 12, 11, true);
+      addObj('anvil', 11, 11);
     } else if (reg.biomeType === 'forest') {
-      this.enemies.push(new Enemy('stalking_wolf', 800, 700));
-      this.enemies.push(new Enemy('stalking_wolf', 1600, 800));
-      this.enemies.push(new Enemy('stalking_wolf', 1100, 1500));
-      this.worldObjects.push(new WorldObject('forage_bush', 900, 1100));
-      this.worldObjects.push(new WorldObject('forage_bush', 1500, 600));
-      this.worldObjects.push(new WorldObject('night_orchid_plant', 1350, 1100));
-      // Nomad Woodcarving Workbench
-      this.worldObjects.push(new WorldObject('workbench', reg.width / 2 - 90, reg.height / 2 - 20));
+      addEnemy('stalking_wolf', 8, 7);
+      addEnemy('stalking_wolf', 16, 8);
+      addEnemy('stalking_wolf', 11, 15);
+      addObj('forage_bush', 9, 11);
+      addObj('forage_bush', 15, 6);
+      addObj('night_orchid_plant', 13, 11);
+      addObj('workbench', 11, 11);
     } else if (reg.biomeType === 'swamp') {
-      this.enemies.push(new Enemy('swamp_horror', 600, 800));
-      this.enemies.push(new Enemy('swamp_horror', 1800, 900));
-      this.enemies.push(new Enemy('swamp_horror', 1400, 1400));
-      this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
-      this.worldObjects.push(new WorldObject('night_orchid_plant', 900, 650));
-      // Morgath Alchemical Cauldron
-      this.worldObjects.push(new WorldObject('alchemy_station', reg.width / 2 - 90, reg.height / 2 - 20));
+      addEnemy('swamp_horror', 6, 8);
+      addEnemy('swamp_horror', 18, 9);
+      addEnemy('swamp_horror', 14, 14);
+      addObj('campfire', 12, 11, true);
+      addObj('night_orchid_plant', 9, 6);
+      addObj('alchemy_station', 11, 11);
     } else if (reg.biomeType === 'canyon') {
-      this.enemies.push(new Enemy('volcanic_scorpion', 700, 700));
-      this.enemies.push(new Enemy('volcanic_scorpion', 1600, 700));
-      this.enemies.push(new Enemy('volcanic_scorpion', 1200, 1500));
-      this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
-      // Sun-Walkers Leather Tanning Station
-      this.worldObjects.push(new WorldObject('tanner', reg.width / 2 - 90, reg.height / 2 - 20));
+      addEnemy('volcanic_scorpion', 7, 7);
+      addEnemy('volcanic_scorpion', 16, 7);
+      addEnemy('volcanic_scorpion', 12, 15);
+      addObj('campfire', 12, 11, true);
+      addObj('tanner', 11, 11);
     } else if (reg.biomeType === 'caverns') {
-      this.enemies.push(new Enemy('crystal_stalker', 700, 700));
-      this.enemies.push(new Enemy('crystal_stalker', 1700, 800));
-      this.enemies.push(new Enemy('crystal_stalker', 1100, 1400));
-      this.worldObjects.push(new WorldObject('campfire', 1200, 1000));
-      this.worldObjects.push(new WorldObject('anvil', reg.width / 2 - 90, reg.height / 2 - 20));
+      addEnemy('crystal_stalker', 7, 7);
+      addEnemy('crystal_stalker', 17, 8);
+      addEnemy('crystal_stalker', 11, 14);
+      addObj('campfire', 12, 11, true);
+      addObj('anvil', 11, 11);
 
-      // --- Ruinas Precursoras (Fase 3.3 Dungeon Chamber) ---
-      // 3 Glyph Pedestals surrounding the Ancestral Chest
-      this.worldObjects.push(new WorldObject('precursor_pedestal', 1400, 600));
-      this.worldObjects.push(new WorldObject('precursor_pedestal', 1600, 600));
-      this.worldObjects.push(new WorldObject('precursor_pedestal', 1500, 480));
-      this.worldObjects.push(new WorldObject('precursor_chest', 1500, 560));
-
-      // Elite Precursor Golem guarding the chamber!
-      this.enemies.push(new Enemy('precursor_golem', 1500, 640));
+      // Precursor Ruins Chamber
+      addObj('precursor_pedestal', 14, 6);
+      addObj('precursor_pedestal', 16, 6);
+      addObj('precursor_pedestal', 15, 5);
+      addObj('precursor_chest', 15, 6);
+      addEnemy('precursor_golem', 15, 7);
     } else if (reg.biomeType === 'alien_core') {
       questSystem.updateObjective('celestial_reckoning', 'enter_core', 1);
       if (!this.bossDefeated) {
-        this.boss = new Boss(reg.width / 2, reg.height / 2 - 120);
-        this.enemies.push(new Enemy('alien_drone', reg.width / 2 - 140, reg.height / 2));
-        this.enemies.push(new Enemy('alien_drone', reg.width / 2 + 140, reg.height / 2));
+        const bossIso = IsometricGrid.gridToScreen(12, 7);
+        this.boss = new Boss(bossIso.x, bossIso.y);
+        addEnemy('alien_drone', 10, 10);
+        addEnemy('alien_drone', 14, 10);
       }
-      this.worldObjects.push(new WorldObject('campfire', reg.width / 2, reg.height - 180));
+      addObj('campfire', 12, 18, true);
     }
 
-    for (const node of reg.exoticMaterialSpawns) {
-      this.worldObjects.push(new WorldObject('exotic_node', node.x, node.y, node.itemId));
+    // Map chokepoints to perimeter tiles
+    if (reg.chokepoints.length > 0) {
+      const cp1 = reg.chokepoints[0];
+      const iso1 = IsometricGrid.gridToScreen(22, 12);
+      cp1.x = iso1.x;
+      cp1.y = iso1.y;
     }
+    if (reg.chokepoints.length > 1) {
+      const cp2 = reg.chokepoints[1];
+      const iso2 = IsometricGrid.gridToScreen(12, 2);
+      cp2.x = iso2.x;
+      cp2.y = iso2.y;
+    }
+
+    // Initial Fog of War calculation
+    const sight = this.player.isHoldingTorch ? 7 : 5;
+    this.grid.updateFogOfWar(this.playerGx, this.playerGy, sight, this.getLitCampfires());
 
     this.showNotification(`Has entrado a: ${reg.name}`);
   }
@@ -353,79 +393,53 @@ export class Game {
       this.player.vitals.stamina = 100;
     }
 
-    // Player Movement
-    let speed = this.player.speed;
-    let isMoving = this.input.moveX !== 0 || this.input.moveY !== 0;
-
-    if (this.input.isRunning && isMoving && (this.player.vitals.stamina > 5 || this.testWorldModal.infiniteStamina)) {
-      speed *= 1.5;
-      if (!this.testWorldModal.infiniteStamina) {
-        let staminaCost = 14 * delta;
-        if (this.player.hasEquippedAbility('canopy_stride') && this.player.canopyStrideActive) {
-          staminaCost *= 0.7;
-        }
-        this.player.vitals.stamina = Math.max(0, this.player.vitals.stamina - staminaCost);
-      }
-    }
-
-    this.player.vx = this.input.moveX * speed;
-    this.player.vy = this.input.moveY * speed;
-
-    if (isMoving) {
-      if (Math.abs(this.input.moveX) > Math.abs(this.input.moveY)) {
-        this.player.facing = this.input.moveX > 0 ? 'right' : 'left';
-      } else {
-        this.player.facing = this.input.moveY > 0 ? 'down' : 'up';
-      }
-      if (Math.random() < 0.05) {
-        soundManager.playFootstep(this.currentRegion.biomeType === 'frost' ? 'snow' : this.currentRegion.biomeType === 'swamp' ? 'mud' : 'dirt');
-      }
-    }
-
+    // 2.5D Smooth visual interpolation towards target isometric position
+    this.player.x += (this.targetPlayerX - this.player.x) * 0.25;
+    this.player.y += (this.targetPlayerY - this.player.y) * 0.25;
     this.player.update(delta);
-    this.player.x = Math.max(20, Math.min(this.currentRegion.width - 20, this.player.x));
-    this.player.y = Math.max(20, Math.min(this.currentRegion.height - 20, this.player.y));
+    this.turnSystem.updateFloatingTexts(delta);
 
-    // Proximity Checks & Prompts
+    // Proximity Checks & Prompts on Isometric Grid
     this.interactionPrompt = null;
     this.nearbyInteractable = null;
 
     let isNearCampfire = false;
     for (const obj of this.worldObjects) {
-      if (obj.isNear(this.player.x, this.player.y)) {
+      const ogx = Math.round(obj.x / IsometricGrid.TILE_WIDTH);
+      const ogy = Math.round(obj.y / IsometricGrid.TILE_HEIGHT);
+      if (Math.abs(ogx - this.playerGx) <= 1 && Math.abs(ogy - this.playerGy) <= 1) {
         if (obj.type === 'campfire' && obj.isLit) {
           isNearCampfire = true;
-          this.interactionPrompt = '[E] Descansar y Cocinar en Fogata';
+          this.interactionPrompt = '[Espacio / ⏳] Descansar junto a la Fogata (+Calor & Estamina)';
           this.nearbyInteractable = { type: 'object', target: obj };
         } else if (obj.type === 'campfire' && !obj.isLit) {
-          this.interactionPrompt = '[E] Encender Fogata de Supervivencia';
+          this.interactionPrompt = '[Toque / E] Encender Fogata de Supervivencia';
           this.nearbyInteractable = { type: 'object', target: obj };
         } else if (!obj.isDepleted) {
-          this.interactionPrompt = `[E] Recolectar ${obj.type === 'forage_bush' ? 'Bayas' : 'Recursos'}`;
+          this.interactionPrompt = `[Toque] Recolectar ${obj.type === 'forage_bush' ? 'Bayas' : 'Recursos'}`;
           this.nearbyInteractable = { type: 'object', target: obj };
         }
       }
     }
 
     for (const npc of this.npcs) {
-      if (npc.isNearPlayer(this.player.x, this.player.y)) {
-        this.interactionPrompt = `[E] Hablar con ${npc.name}`;
+      const ngx = Math.round(npc.x / IsometricGrid.TILE_WIDTH);
+      const ngy = Math.round(npc.y / IsometricGrid.TILE_HEIGHT);
+      if (Math.abs(ngx - this.playerGx) <= 1 && Math.abs(ngy - this.playerGy) <= 1) {
+        this.interactionPrompt = `[Hablar] ${npc.name}`;
         this.nearbyInteractable = { type: 'npc', target: npc };
       }
     }
 
     for (const cp of this.currentRegion.chokepoints) {
-      if (
-        this.player.x >= cp.x - cp.width / 2 &&
-        this.player.x <= cp.x + cp.width / 2 &&
-        this.player.y >= cp.y - cp.height / 2 &&
-        this.player.y <= cp.y + cp.height / 2
-      ) {
+      const cpgx = Math.round(cp.x / IsometricGrid.TILE_WIDTH);
+      const cpgy = Math.round(cp.y / IsometricGrid.TILE_HEIGHT);
+      if (Math.abs(this.playerGx - cpgx) <= 1 && Math.abs(this.playerGy - cpgy) <= 1) {
         if (cp.targetRegionId === 'alien_core' && !this.player.getItemCount('alien_translator_device')) {
           this.interactionPrompt = '⚠️ Barrera Alienígena Impenetrable (Requiere Dispositivo de Traducción)';
           continue;
         }
-        this.interactionPrompt = `[E] Viajar a: ${cp.name}`;
+        this.interactionPrompt = `[Entrar] Viajar a: ${cp.name}`;
         this.nearbyInteractable = { type: 'chokepoint', target: cp };
       }
     }
@@ -605,6 +619,192 @@ export class Game {
       }
     } else {
       this.showNotification(result.description);
+    }
+  }
+
+  // --- 2.5D Isometric Turn-Based Actions (The Wild Darkness style) ---
+
+  public stepPlayer(dx: number, dy: number) {
+    if (this.player.vitals.health <= 0) return;
+
+    if (dx < 0 && dy === 0) this.player.facing = 'up'; // NW
+    else if (dx === 0 && dy < 0) this.player.facing = 'right'; // NE
+    else if (dx > 0 && dy === 0) this.player.facing = 'down'; // SE
+    else if (dx === 0 && dy > 0) this.player.facing = 'left'; // SW
+
+    const targetGx = this.playerGx + dx;
+    const targetGy = this.playerGy + dy;
+
+    if (!this.grid.isPassable(targetGx, targetGy)) {
+      this.showNotification('⚠️ Terreno o acantilado infranqueable');
+      return;
+    }
+
+    // Check if target tile has an alive enemy
+    const targetEnemy = this.enemies.find(e => {
+      if (!e.isAlive) return false;
+      const egx = Math.round(e.x / IsometricGrid.TILE_WIDTH);
+      const egy = Math.round(e.y / IsometricGrid.TILE_HEIGHT);
+      return egx === targetGx && egy === targetGy;
+    });
+
+    if (targetEnemy) {
+      const dmg = this.player.getMeleeDamage();
+      targetEnemy.takeDamage(dmg, this.player);
+      soundManager.playHit();
+      const targetScreen = IsometricGrid.gridToScreen(targetGx, targetGy);
+      this.turnSystem.addFloatingText(`-${dmg}`, targetScreen.x, targetScreen.y - 20, '#ffd700');
+      particleSystem.spawnSparks(targetScreen.x, targetScreen.y, '#ffd700', 8);
+
+      this.turnSystem.advanceTurn(this.player, this.enemies, this.boss, this.worldObjects, this.currentRegion, this.grid, false);
+      return;
+    }
+
+    // Check if target tile has an interactable object
+    const targetObj = this.worldObjects.find(obj => {
+      const ogx = Math.round(obj.x / IsometricGrid.TILE_WIDTH);
+      const ogy = Math.round(obj.y / IsometricGrid.TILE_HEIGHT);
+      return ogx === targetGx && ogy === targetGy;
+    });
+
+    if (targetObj) {
+      if (targetObj.type === 'campfire' && !targetObj.isLit) {
+        if (this.player.getItemCount('branches') >= 1 && this.player.getItemCount('flint') >= 1) {
+          this.player.removeItem('branches', 1);
+          targetObj.isLit = true;
+          targetObj.fireTimer = 300;
+          soundManager.playCampfire();
+          this.showNotification('🔥 ¡Hoguera encendida con pedernal y ramas!');
+          questSystem.updateObjective('prologue_survival', 'light_campfire', 1);
+          this.turnSystem.advanceTurn(this.player, this.enemies, this.boss, this.worldObjects, this.currentRegion, this.grid, false);
+          this.grid.updateFogOfWar(this.playerGx, this.playerGy, this.player.isHoldingTorch ? 7 : 5, this.getLitCampfires());
+          return;
+        } else {
+          this.showNotification('Necesitas 1x Rama y 1x Pedernal para encender la hoguera.');
+          return;
+        }
+      } else if (targetObj.type === 'forage_bush' && !targetObj.isDepleted) {
+        targetObj.isDepleted = true;
+        this.player.addItem('berries', 2);
+        soundManager.playForage();
+        this.showNotification('🍇 ¡Recolectaste 2x Bayas Silvestres!');
+        this.turnSystem.advanceTurn(this.player, this.enemies, this.boss, this.worldObjects, this.currentRegion, this.grid, false);
+        return;
+      } else if (targetObj.type === 'flint_rock' && !targetObj.isDepleted) {
+        targetObj.isDepleted = true;
+        this.player.addItem('flint', 2);
+        soundManager.playForage();
+        this.showNotification('🪨 ¡Recolectaste 2x Pedernal!');
+        this.turnSystem.advanceTurn(this.player, this.enemies, this.boss, this.worldObjects, this.currentRegion, this.grid, false);
+        return;
+      } else if (targetObj.type === 'branch_pile' && !targetObj.isDepleted) {
+        targetObj.isDepleted = true;
+        this.player.addItem('branches', 3);
+        soundManager.playForage();
+        this.showNotification('🪵 ¡Recolectaste 3x Ramas!');
+        this.turnSystem.advanceTurn(this.player, this.enemies, this.boss, this.worldObjects, this.currentRegion, this.grid, false);
+        return;
+      } else if (targetObj.type === 'workbench') {
+        this.openInventory();
+        return;
+      }
+    }
+
+    // Step player to target tile
+    this.playerGx = targetGx;
+    this.playerGy = targetGy;
+    const targetIso = IsometricGrid.gridToScreen(this.playerGx, this.playerGy);
+    this.targetPlayerX = targetIso.x;
+    this.targetPlayerY = targetIso.y;
+
+    soundManager.playFootstep(this.currentRegion.biomeType === 'frost' ? 'snow' : this.currentRegion.biomeType === 'swamp' ? 'mud' : 'dirt');
+
+    this.turnSystem.advanceTurn(this.player, this.enemies, this.boss, this.worldObjects, this.currentRegion, this.grid, false);
+
+    const sight = this.player.isHoldingTorch ? 7 : 5;
+    this.grid.updateFogOfWar(this.playerGx, this.playerGy, sight, this.getLitCampfires());
+
+    this.checkChokepointStep();
+  }
+
+  public waitPlayer() {
+    if (this.player.vitals.health <= 0) return;
+    this.turnSystem.advanceTurn(this.player, this.enemies, this.boss, this.worldObjects, this.currentRegion, this.grid, true);
+    const sight = this.player.isHoldingTorch ? 7 : 5;
+    this.grid.updateFogOfWar(this.playerGx, this.playerGy, sight, this.getLitCampfires());
+  }
+
+  public interactTile(gx: number, gy: number) {
+    if (gx === this.playerGx && gy === this.playerGy) {
+      this.waitPlayer();
+      return;
+    }
+    const dx = gx - this.playerGx;
+    const dy = gy - this.playerGy;
+    if (Math.abs(dx) + Math.abs(dy) === 1) {
+      this.stepPlayer(dx, dy);
+    } else {
+      const stepX = dx !== 0 ? (dx > 0 ? 1 : -1) : 0;
+      const stepY = stepX === 0 ? (dy > 0 ? 1 : -1) : 0;
+      this.stepPlayer(stepX, stepY);
+    }
+  }
+
+  public attackNearest() {
+    for (const enemy of this.enemies) {
+      if (!enemy.isAlive) continue;
+      const egx = Math.round(enemy.x / IsometricGrid.TILE_WIDTH);
+      const egy = Math.round(enemy.y / IsometricGrid.TILE_HEIGHT);
+      if (Math.abs(egx - this.playerGx) + Math.abs(egy - this.playerGy) <= 1) {
+        this.stepPlayer(egx - this.playerGx, egy - this.playerGy);
+        return;
+      }
+    }
+    if (this.player.attack()) {
+      this.resolveMeleeAttack();
+      this.waitPlayer();
+    }
+  }
+
+  public openWorldMap() {
+    this.worldMapModal.show(this.currentRegion.id, (regionId) => {
+      this.loadRegion(regionId, true);
+    });
+  }
+
+  public isNearAnyLitCampfire(): boolean {
+    for (const obj of this.worldObjects) {
+      if (obj.type === 'campfire' && obj.isLit) {
+        const dx = Math.abs(Math.round(this.player.x / IsometricGrid.TILE_WIDTH) - Math.round(obj.x / IsometricGrid.TILE_WIDTH));
+        const dy = Math.abs(Math.round(this.player.y / IsometricGrid.TILE_HEIGHT) - Math.round(obj.y / IsometricGrid.TILE_HEIGHT));
+        if (dx <= 2 && dy <= 2) return true;
+      }
+    }
+    return false;
+  }
+
+  public getLitCampfires(): { gx: number; gy: number; isLit: boolean }[] {
+    return this.worldObjects
+      .filter(o => o.type === 'campfire' && o.isLit)
+      .map(o => ({
+        gx: Math.round(o.x / IsometricGrid.TILE_WIDTH),
+        gy: Math.round(o.y / IsometricGrid.TILE_HEIGHT),
+        isLit: o.isLit
+      }));
+  }
+
+  private checkChokepointStep() {
+    for (const cp of this.currentRegion.chokepoints) {
+      const cpgx = Math.round(cp.x / IsometricGrid.TILE_WIDTH);
+      const cpgy = Math.round(cp.y / IsometricGrid.TILE_HEIGHT);
+      if (Math.abs(this.playerGx - cpgx) <= 1 && Math.abs(this.playerGy - cpgy) <= 1) {
+        if (cp.targetRegionId === 'alien_core' && !this.player.getItemCount('alien_translator_device')) {
+          this.showNotification('⚠️ Barrera Alienígena Impenetrable (Requiere Dispositivo de Traducción)');
+          return;
+        }
+        this.performInteraction({ type: 'chokepoint', target: cp });
+        return;
+      }
     }
   }
 
@@ -867,21 +1067,25 @@ export class Game {
     const minY = this.cameraY - margin;
     const maxY = this.cameraY + height + margin;
 
-    // 1. Draw Biome Terrain Ground
+    // 1. Draw Biome Terrain / Concept Art Background
     this.drawTerrain(this.ctx);
 
-    // 2. Draw Chokepoints (Floor level)
-    this.drawChokepoints(this.ctx);
+    // 2. Draw 2.5D Isometric Diamond Grid & Block Slabs
+    this.grid.draw(this.ctx, this.cameraX, this.cameraY, this.currentRegion);
 
-    // 3. Unified Y-Sorted Entity Render Layer (2.5D Depth Occlusion)
+    // 3. Unified 2.5D Depth-Occluded Entity Layer
     const renderables: { y: number; draw: () => void }[] = [];
 
     for (const obj of this.worldObjects) {
-      if (obj.x >= minX && obj.x <= maxX && obj.y >= minY && obj.y <= maxY) {
-        renderables.push({
-          y: obj.y + (obj.type === 'coastal_palm' ? 18 : obj.height / 2),
-          draw: () => obj.draw(this.ctx, this.cameraX, this.cameraY)
-        });
+      const gx = Math.round(obj.x / IsometricGrid.TILE_WIDTH);
+      const gy = Math.round(obj.y / IsometricGrid.TILE_HEIGHT);
+      if (!this.grid.tiles[gx] || !this.grid.tiles[gx][gy] || this.grid.tiles[gx][gy].visibility > 0) {
+        if (obj.x >= minX && obj.x <= maxX && obj.y >= minY && obj.y <= maxY) {
+          renderables.push({
+            y: obj.y + (obj.type === 'coastal_palm' ? 18 : obj.height / 2),
+            draw: () => obj.draw(this.ctx, this.cameraX, this.cameraY)
+          });
+        }
       }
     }
 
@@ -895,11 +1099,15 @@ export class Game {
     }
 
     for (const enemy of this.enemies) {
-      if (enemy.x >= minX && enemy.x <= maxX && enemy.y >= minY && enemy.y <= maxY) {
-        renderables.push({
-          y: enemy.y + enemy.height / 2,
-          draw: () => enemy.draw(this.ctx, this.cameraX, this.cameraY)
-        });
+      if (enemy.isAlive && enemy.x >= minX && enemy.x <= maxX && enemy.y >= minY && enemy.y <= maxY) {
+        const gx = Math.round(enemy.x / IsometricGrid.TILE_WIDTH);
+        const gy = Math.round(enemy.y / IsometricGrid.TILE_HEIGHT);
+        if (!this.grid.tiles[gx] || !this.grid.tiles[gx][gy] || this.grid.tiles[gx][gy].visibility > 0) {
+          renderables.push({
+            y: enemy.y + enemy.height / 2,
+            draw: () => enemy.draw(this.ctx, this.cameraX, this.cameraY)
+          });
+        }
       }
     }
 
@@ -928,26 +1136,20 @@ export class Game {
     // 5. Draw Particle System
     particleSystem.draw(this.ctx, this.cameraX, this.cameraY);
 
-    // 6. Darkness Light Mask
+    // 6. Draw 2.5D Floating Damage/Healing/Stamina Texts
+    this.turnSystem.drawFloatingTexts(this.ctx, this.cameraX, this.cameraY);
+
+    // 7. Darkness Light Mask & Radial Vision Fog
     this.drawLightingMask(this.ctx, width, height);
 
-    // 9. Weather Particle & Atmospheric Effects
+    // 8. Weather Particle & Atmospheric Effects
     this.weatherSystem.updateAndDraw(this.ctx, width, height, this.cameraX, this.cameraY, 0.016);
 
-    // 10. HUD & Vitals
-    let isNearCampfire = false;
-    for (const obj of this.worldObjects) {
-      if (obj.type === 'campfire' && obj.isLit && obj.isNear(this.player.x, this.player.y)) {
-        isNearCampfire = true;
-        break;
-      }
-    }
-    this.hud.draw(this.ctx, width, height, this.player, this.currentRegion, isNearCampfire, this.interactionPrompt);
+    // 9. HUD & Vitals
+    let isNearCampfire = this.isNearAnyLitCampfire();
+    this.hud.draw(this.ctx, width, height, this.player, this.currentRegion, isNearCampfire, this.interactionPrompt, this.turnSystem.turnCount);
 
-    // 11. Touch Virtual Joystick
-    this.input.drawTouchOverlay(this.ctx);
-
-    // 12. In-game Notification Banner
+    // 10. In-game Notification Banner
     if (this.notificationMessage) {
       this.drawNotification(this.ctx, width, height);
     }

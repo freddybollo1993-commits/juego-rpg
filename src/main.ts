@@ -115,43 +115,69 @@ function initApp() {
     });
   };
 
-  // Bind On-Screen Touch Action Buttons
-  const btnAttack = document.getElementById('btn-touch-attack');
-  const triggerAttack = () => {
-    if (game.player.attack()) {
-      // @ts-expect-error accessing private method for action dispatch
-      game.resolveMeleeAttack();
-    }
-  };
-  btnAttack?.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    triggerAttack();
-  });
-  btnAttack?.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    triggerAttack();
-  });
+  // Bind 2.5D World Map Buttons
+  const openWorldMap = () => game.openWorldMap();
+  bindTouchOrClick('btn-world-map', openWorldMap);
+  bindTouchOrClick('btn-touch-map', openWorldMap);
 
-  const btnSprint = document.getElementById('btn-touch-sprint');
-  const startSprint = (e: Event) => {
-    e.preventDefault();
-    game.input.isRunning = true;
-  };
-  const endSprint = (e: Event) => {
-    e.preventDefault();
-    game.input.isRunning = false;
-  };
-  btnSprint?.addEventListener('touchstart', startSprint);
-  btnSprint?.addEventListener('touchend', endSprint);
-  btnSprint?.addEventListener('mousedown', startSprint);
-  btnSprint?.addEventListener('mouseup', endSprint);
+  // Bind 2.5D Isometric D-Pad (The Wild Darkness style)
+  bindTouchOrClick('btn-iso-nw', () => game.stepPlayer(-1, 0));
+  bindTouchOrClick('btn-iso-ne', () => game.stepPlayer(0, -1));
+  bindTouchOrClick('btn-iso-se', () => game.stepPlayer(1, 0));
+  bindTouchOrClick('btn-iso-sw', () => game.stepPlayer(0, 1));
+  bindTouchOrClick('btn-iso-wait', () => game.waitPlayer());
 
+  // Bind Touch Bar Action Buttons
+  bindTouchOrClick('btn-touch-wait', () => game.waitPlayer());
+  bindTouchOrClick('btn-touch-attack', () => game.attackNearest());
   bindTouchOrClick('btn-touch-radial', () => game.openRadialMenu());
   bindTouchOrClick('btn-touch-codex', () => game.openCodex());
   bindTouchOrClick('btn-touch-inv', () => game.openInventory());
   bindTouchOrClick('btn-touch-sacrifice', () => game.triggerSacrificeAction());
-  bindTouchOrClick('btn-touch-dodge', () => game.triggerDodgeAction());
   bindTouchOrClick('btn-touch-bow', () => game.triggerBowAction());
+
+  // Direct Click / Tap on Canvas to Interact or Move to Isometric Tile
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    const worldX = clickX + game.cameraX;
+    const worldY = clickY + game.cameraY;
+    const gridPos = (game.grid.constructor as any).screenToGrid(worldX, worldY);
+    game.interactTile(gridPos.gx, gridPos.gy);
+  });
+
+  // Mouse hover tile highlight
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const hoverX = e.clientX - rect.left;
+    const hoverY = e.clientY - rect.top;
+    const worldX = hoverX + game.cameraX;
+    const worldY = hoverY + game.cameraY;
+    game.grid.hoveredTile = (game.grid.constructor as any).screenToGrid(worldX, worldY);
+  });
+
+  // Desktop Keyboard Controls for Isometric Turn Navigation
+  window.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp' || e.key === 'e' || e.key === 'E') {
+      game.stepPlayer(0, -1); // NE
+    } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown' || e.key === 'z' || e.key === 'Z') {
+      game.stepPlayer(0, 1); // SW
+    } else if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight' || e.key === 'c' || e.key === 'C') {
+      game.stepPlayer(1, 0); // SE
+    } else if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q') {
+      game.stepPlayer(-1, 0); // NW
+    } else if (e.key === ' ' || e.key === '.') {
+      e.preventDefault();
+      game.waitPlayer(); // Rest
+    } else if (e.key === 'm' || e.key === 'M') {
+      game.openWorldMap();
+    } else if (e.key === 'x' || e.key === 'X') {
+      game.triggerSacrificeAction();
+    }
+  });
 }
 
 window.addEventListener('DOMContentLoaded', initApp);

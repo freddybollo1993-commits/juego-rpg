@@ -55,6 +55,24 @@ export const CONCEPT_ART_MANIFEST: Record<string, ConceptArtEntry> = {
     description: 'Pecio extraterrestre de terraformación con anillos de levitación antigravitatoria y el colosal Heraldo de las Estrellas.',
     shapeLanguage: 'Geometría biomecánica no euclidiana y concentradores plasmáticos',
     colorPalette: ['#0A141A', '#123E4F', '#023E8A', '#00F5D4', '#F72585']
+  },
+  world_map: {
+    id: 'world_map',
+    title: 'Mapa del Mundo 2.5D (Los 7 Biomas de la Terraformación)',
+    biomeId: 'overworld',
+    imagePath: '/concept_art/world_map_isometric.jpg',
+    description: 'Cartografía isométrica en diorama de los 7 biomas interconectados: Playa del Naufragio, Taiga, Ciénaga, Meseta Helada, Cañón de Cenizas, Abismo Subterráneo y Núcleo del Impacto.',
+    shapeLanguage: 'Islas flotantes de diorama con conexiones axonométricas e iluminación crepuscular',
+    colorPalette: ['#1A202C', '#D4AF37', '#00F5D4', '#E76F51', '#70E000']
+  },
+  isometric_beach: {
+    id: 'isometric_beach',
+    title: 'Diorama Isométrico 2.5D de la Playa del Naufragio',
+    biomeId: 'beach',
+    imagePath: '/concept_art/isometric_gameplay_beach.jpg',
+    description: 'Explorador superviviente junto a la fogata en perspectiva axonométrica The Wild Darkness, con niebla de guerra y lobos en el perímetro.',
+    shapeLanguage: 'Cuadrícula diamantina isométrica 2.5D con iluminación radial cálida contra sombras perimetrales',
+    colorPalette: ['#B0A880', '#DDA15E', '#1D2A44', '#FF9F1C', '#E63946']
   }
 };
 

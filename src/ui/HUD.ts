@@ -22,12 +22,13 @@ export class HUD {
     player: Player,
     currentRegion: RegionData,
     _isNearCampfire: boolean,
-    interactionPrompt: string | null
+    interactionPrompt: string | null,
+    turnCount: number = 1
   ) {
     ctx.save();
 
     // 1. Top Bar: Region Name, Title Tag & Chokepoint Compass Arrow
-    this.drawTopBar(ctx, width, currentRegion, player);
+    this.drawTopBar(ctx, width, currentRegion, player, turnCount);
 
     // 2. Top Left: Vital Bars & Temperature Gauge
     this.drawVitals(ctx, player);
@@ -49,7 +50,7 @@ export class HUD {
     ctx.restore();
   }
 
-  private drawTopBar(ctx: CanvasRenderingContext2D, width: number, region: RegionData, player: Player) {
+  private drawTopBar(ctx: CanvasRenderingContext2D, width: number, region: RegionData, player: Player, turnCount: number) {
     const boxW = 390;
     const boxX = (width - boxW) / 2;
 
@@ -59,11 +60,11 @@ export class HUD {
     ctx.lineWidth = 1;
     ctx.strokeRect(boxX, 8, boxW, 42);
 
-    // Left: Day/Night Clock
+    // Left: Turn and Day/Night Clock
     ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 12px sans-serif';
+    ctx.font = 'bold 11px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`${dayNightCycle.getPhaseIcon()} ${dayNightCycle.getTimeString()}`, boxX + 10, 26);
+    ctx.fillText(`⏳ T#${turnCount} • ${dayNightCycle.getPhaseIcon()} ${dayNightCycle.getTimeString()}`, boxX + 8, 26);
 
     // Center: Region Name & Title
     ctx.fillStyle = '#f8fafc';
