@@ -105,11 +105,17 @@ function initApp() {
   bindTouchOrClick('btn-world-map', openWorldMap);
   bindTouchOrClick('btn-touch-map', openWorldMap);
 
-  // Bind 2.5D Isometric D-Pad (The Wild Darkness style)
-  bindTouchOrClick('btn-iso-nw', () => game.stepPlayer(-1, 0));
-  bindTouchOrClick('btn-iso-ne', () => game.stepPlayer(0, -1));
-  bindTouchOrClick('btn-iso-se', () => game.stepPlayer(1, 0));
-  bindTouchOrClick('btn-iso-sw', () => game.stepPlayer(0, 1));
+  // Bind 2.5D Isometric D-Pad — 8 directions (The Wild Darkness style)
+  // Axis moves: NW(-1,0), NE(0,-1), SE(+1,0), SW(0,+1)
+  // Diagonal moves: N(-1,-1), E(+1,-1), S(+1,+1), W(-1,+1)
+  bindTouchOrClick('btn-iso-nw',   () => game.stepPlayer(-1,  0));
+  bindTouchOrClick('btn-iso-ne',   () => game.stepPlayer( 0, -1));
+  bindTouchOrClick('btn-iso-se',   () => game.stepPlayer( 1,  0));
+  bindTouchOrClick('btn-iso-sw',   () => game.stepPlayer( 0,  1));
+  bindTouchOrClick('btn-iso-n',    () => game.stepPlayer(-1, -1));
+  bindTouchOrClick('btn-iso-s',    () => game.stepPlayer( 1,  1));
+  bindTouchOrClick('btn-iso-w',    () => game.stepPlayer(-1,  1));
+  bindTouchOrClick('btn-iso-e',    () => game.stepPlayer( 1, -1));
   bindTouchOrClick('btn-iso-wait', () => game.waitPlayer());
 
   // Bind Touch Bar Action Buttons
@@ -147,31 +153,36 @@ function initApp() {
     game.grid.hoveredTile = (game.grid.constructor as any).screenToGrid(worldX, worldY);
   });
 
-  // Desktop Keyboard Controls for Isometric Turn Navigation
+  // Desktop Keyboard Controls for Isometric Turn Navigation — 8 directions
+  // Axis:      W/↑=NE,  S/↓=SW,  D/→=SE,  A/←=NW
+  // Diagonals: Q=N(-1,-1),  E=S... wait – keep Q=NW-diagonal? Let's map:
+  //   Q=N(-1,-1),  E=E(+1,-1),  Z=W(-1,+1),  C=S(+1,+1)
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
-    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp' || e.key === 'e' || e.key === 'E') {
-      game.stepPlayer(0, -1); // NE
-    } else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown' || e.key === 'z' || e.key === 'Z') {
-      game.stepPlayer(0, 1); // SW
-    } else if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight' || e.key === 'c' || e.key === 'C') {
-      game.stepPlayer(1, 0); // SE
-    } else if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q') {
-      game.stepPlayer(-1, 0); // NW
-    } else if (e.key === ' ' || e.key === '.') {
-      e.preventDefault();
-      game.waitPlayer(); // Rest / Guard Turn
-    } else if (e.key === 'b' || e.key === 'B') {
-      game.triggerBowAction(); // Turn-based bow shot
-    } else if (e.key === 'f' || e.key === 'F') {
-      game.attackNearest(); // Turn-based melee attack
-    } else if (e.key === 'i' || e.key === 'I') {
-      game.openInventory();
-    } else if (e.key === 'm' || e.key === 'M') {
-      game.openWorldMap();
-    } else if (e.key === 'x' || e.key === 'X') {
-      game.triggerSacrificeAction();
+    switch (e.key.toLowerCase()) {
+      // Axis moves
+      case 'w': case 'arrowup':    game.stepPlayer( 0, -1); break; // NE
+      case 's': case 'arrowdown':  game.stepPlayer( 0,  1); break; // SW
+      case 'd': case 'arrowright': game.stepPlayer( 1,  0); break; // SE
+      case 'a': case 'arrowleft':  game.stepPlayer(-1,  0); break; // NW
+      // Diagonal moves (numpad-style: Q=NW-diag, E=NE-diag, Z=SW-diag, C=SE-diag)
+      case 'q': game.stepPlayer(-1, -1); break; // N (iso NW-diagonal)
+      case 'e': game.stepPlayer( 1, -1); break; // E (iso NE-diagonal)
+      case 'z': game.stepPlayer(-1,  1); break; // W (iso SW-diagonal)
+      case 'c': game.stepPlayer( 1,  1); break; // S (iso SE-diagonal)
+      // Wait / Rest
+      case ' ':
+      case '.':
+        e.preventDefault();
+        game.waitPlayer();
+        break;
+      // Other actions
+      case 'b': game.triggerBowAction(); break;
+      case 'f': game.attackNearest(); break;
+      case 'i': game.openInventory(); break;
+      case 'm': game.openWorldMap(); break;
+      case 'x': game.triggerSacrificeAction(); break;
     }
   });
 }

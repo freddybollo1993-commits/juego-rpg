@@ -15,14 +15,22 @@
   <div id="app-container">
     <canvas id="game-canvas"></canvas>
 
-    <!-- Dedicated Touch Zone with 2.5D Isometric D-Pad (Left Side of Screen) -->
+    <!-- Dedicated Touch Zone with 2.5D Isometric D-Pad (Left Side of Screen) — 8 directions -->
     <div id="touch-controls-left" class="touch-controls-left">
       <div class="iso-dpad" id="iso-dpad">
-        <button class="iso-btn iso-btn-nw" id="btn-iso-nw" title="Moverse al Noroeste (↖)">↖</button>
-        <button class="iso-btn iso-btn-ne" id="btn-iso-ne" title="Moverse al Noreste (↗)">↗</button>
-        <button class="iso-btn iso-btn-wait" id="btn-iso-wait" title="Esperar / Descansar Turno (⏳)">⏳</button>
-        <button class="iso-btn iso-btn-sw" id="btn-iso-sw" title="Moverse al Suroeste (↙)">↙</button>
-        <button class="iso-btn iso-btn-se" id="btn-iso-se" title="Moverse al Sureste (↘)">↘</button>
+        <!-- 3x3 grid — corners=diagonals, edges=axis moves, center=wait -->
+        <!-- TL=N(-1,-1)  TC=NW(-1,0)  TR=NE(0,-1)                       -->
+        <!-- ML=W(-1,+1)  MC=⏳wait    MR=E(+1,-1)                       -->
+        <!-- BL=SW(0,+1)  BC=SE(+1,0)  BR=S(+1,+1)                      -->
+        <button class="iso-btn iso-btn-n"    id="btn-iso-n"    title="Norte (-1,-1)">⬆</button>
+        <button class="iso-btn iso-btn-nw"   id="btn-iso-nw"   title="Noroeste (-1,0)">↖</button>
+        <button class="iso-btn iso-btn-ne"   id="btn-iso-ne"   title="Noreste (0,-1)">↗</button>
+        <button class="iso-btn iso-btn-w"    id="btn-iso-w"    title="Oeste (-1,+1)">⬅</button>
+        <button class="iso-btn iso-btn-wait" id="btn-iso-wait" title="Esperar turno">⏳</button>
+        <button class="iso-btn iso-btn-e"    id="btn-iso-e"    title="Este (+1,-1)">➡</button>
+        <button class="iso-btn iso-btn-sw"   id="btn-iso-sw"   title="Suroeste (0,+1)">↙</button>
+        <button class="iso-btn iso-btn-se"   id="btn-iso-se"   title="Sureste (+1,0)">↘</button>
+        <button class="iso-btn iso-btn-s"    id="btn-iso-s"    title="Sur (+1,+1)">⬇</button>
       </div>
     </div>
 

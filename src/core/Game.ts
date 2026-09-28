@@ -31,6 +31,13 @@ import { dayNightCycle } from '../systems/DayNightCycle';
 import { talentModal } from '../ui/TalentModal';
 
 export class Game {
+  // ─────────────────────────────────────────────────────────────────────────
+  // PHASE FLAG — Set to `true` to isolate ONLY the movement system.
+  // Enemies, NPC, objects (blocking), combat, bow, survival and boss
+  // are all disabled until this is set back to `false`.
+  // ─────────────────────────────────────────────────────────────────────────
+  public static MOVEMENT_ONLY: boolean = true;
+
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private lastTime: number = 0;
@@ -246,87 +253,89 @@ export class Game {
       return enemy;
     };
 
-    // Spawn Tribe Chief if region has one
-    if (reg.tribeId && TRIBES_DATA[reg.tribeId]) {
+    // Spawn Tribe Chief if region has one (disabled in MOVEMENT_ONLY phase)
+    if (!Game.MOVEMENT_ONLY && reg.tribeId && TRIBES_DATA[reg.tribeId]) {
       const chiefPos = findFreeTile(11, 10);
       const chiefIso = IsometricGrid.gridToScreen(chiefPos.gx, chiefPos.gy);
       this.npcs.push(new NPC(reg.tribeId, chiefIso.x, chiefIso.y, chiefPos.gx, chiefPos.gy));
       addObj('campfire', 12, 10, true);
     }
 
-    // Spawn Region-specific Objects & Enemies in Isometric Diorama (1 item per tile)
-    if (reg.biomeType === 'beach') {
-      // Primary Landing Site (Surrounding Player Spawn at 12, 12)
-      addObj('campfire', 11, 13, false);
-      addObj('workbench', 13, 11);
-      addObj('shipwreck_debris', 9, 10);
-      addObj('shipwreck_debris', 14, 14);
-      addObj('shipwreck_debris', 8, 14);
+    // Spawn Region-specific Objects & Enemies (disabled in MOVEMENT_ONLY phase)
+    if (!Game.MOVEMENT_ONLY) {
+      if (reg.biomeType === 'beach') {
+        // Primary Landing Site (Surrounding Player Spawn at 12, 12)
+        addObj('campfire', 11, 13, false);
+        addObj('workbench', 13, 11);
+        addObj('shipwreck_debris', 9, 10);
+        addObj('shipwreck_debris', 14, 14);
+        addObj('shipwreck_debris', 8, 14);
 
-      addObj('coastal_palm', 7, 7);
-      addObj('coastal_palm', 16, 7);
-      addObj('coastal_palm', 16, 16);
-      addObj('coastal_palm', 7, 16);
+        addObj('coastal_palm', 7, 7);
+        addObj('coastal_palm', 16, 7);
+        addObj('coastal_palm', 16, 16);
+        addObj('coastal_palm', 7, 16);
 
-      addObj('branch_pile', 10, 11);
-      addObj('branch_pile', 13, 13);
-      addObj('flint_rock', 14, 11);
-      addObj('flint_rock', 10, 12);
-      addObj('forage_bush', 13, 14);
-      addObj('forage_bush', 10, 14);
+        addObj('branch_pile', 10, 11);
+        addObj('branch_pile', 13, 13);
+        addObj('flint_rock', 14, 11);
+        addObj('flint_rock', 10, 12);
+        addObj('forage_bush', 13, 14);
+        addObj('forage_bush', 10, 14);
 
-      addEnemy('stalking_wolf', 5, 5);
-      addEnemy('stalking_wolf', 18, 6);
-    } else if (reg.biomeType === 'frost') {
-      addEnemy('frost_beast', 6, 6);
-      addEnemy('frost_beast', 17, 12);
-      addEnemy('frost_beast', 13, 16);
-      addObj('campfire', 12, 11, true);
-      addObj('anvil', 11, 11);
-    } else if (reg.biomeType === 'forest') {
-      addEnemy('stalking_wolf', 8, 7);
-      addEnemy('stalking_wolf', 16, 8);
-      addEnemy('stalking_wolf', 11, 15);
-      addObj('forage_bush', 9, 11);
-      addObj('forage_bush', 15, 6);
-      addObj('night_orchid_plant', 13, 11);
-      addObj('workbench', 11, 11);
-    } else if (reg.biomeType === 'swamp') {
-      addEnemy('swamp_horror', 6, 8);
-      addEnemy('swamp_horror', 18, 9);
-      addEnemy('swamp_horror', 14, 14);
-      addObj('campfire', 12, 11, true);
-      addObj('night_orchid_plant', 9, 6);
-      addObj('alchemy_station', 11, 11);
-    } else if (reg.biomeType === 'canyon') {
-      addEnemy('volcanic_scorpion', 7, 7);
-      addEnemy('volcanic_scorpion', 16, 7);
-      addEnemy('volcanic_scorpion', 12, 15);
-      addObj('campfire', 12, 11, true);
-      addObj('tanner', 11, 11);
-    } else if (reg.biomeType === 'caverns') {
-      addEnemy('crystal_stalker', 7, 7);
-      addEnemy('crystal_stalker', 17, 8);
-      addEnemy('crystal_stalker', 11, 14);
-      addObj('campfire', 12, 11, true);
-      addObj('anvil', 11, 11);
+        addEnemy('stalking_wolf', 5, 5);
+        addEnemy('stalking_wolf', 18, 6);
+      } else if (reg.biomeType === 'frost') {
+        addEnemy('frost_beast', 6, 6);
+        addEnemy('frost_beast', 17, 12);
+        addEnemy('frost_beast', 13, 16);
+        addObj('campfire', 12, 11, true);
+        addObj('anvil', 11, 11);
+      } else if (reg.biomeType === 'forest') {
+        addEnemy('stalking_wolf', 8, 7);
+        addEnemy('stalking_wolf', 16, 8);
+        addEnemy('stalking_wolf', 11, 15);
+        addObj('forage_bush', 9, 11);
+        addObj('forage_bush', 15, 6);
+        addObj('night_orchid_plant', 13, 11);
+        addObj('workbench', 11, 11);
+      } else if (reg.biomeType === 'swamp') {
+        addEnemy('swamp_horror', 6, 8);
+        addEnemy('swamp_horror', 18, 9);
+        addEnemy('swamp_horror', 14, 14);
+        addObj('campfire', 12, 11, true);
+        addObj('night_orchid_plant', 9, 6);
+        addObj('alchemy_station', 11, 11);
+      } else if (reg.biomeType === 'canyon') {
+        addEnemy('volcanic_scorpion', 7, 7);
+        addEnemy('volcanic_scorpion', 16, 7);
+        addEnemy('volcanic_scorpion', 12, 15);
+        addObj('campfire', 12, 11, true);
+        addObj('tanner', 11, 11);
+      } else if (reg.biomeType === 'caverns') {
+        addEnemy('crystal_stalker', 7, 7);
+        addEnemy('crystal_stalker', 17, 8);
+        addEnemy('crystal_stalker', 11, 14);
+        addObj('campfire', 12, 11, true);
+        addObj('anvil', 11, 11);
 
-      // Precursor Ruins Chamber
-      addObj('precursor_pedestal', 14, 6);
-      addObj('precursor_pedestal', 16, 6);
-      addObj('precursor_pedestal', 15, 5);
-      addObj('precursor_chest', 15, 6);
-      addEnemy('precursor_golem', 15, 7);
-    } else if (reg.biomeType === 'alien_core') {
-      questSystem.updateObjective('celestial_reckoning', 'enter_core', 1);
-      if (!this.bossDefeated) {
-        const bossIso = IsometricGrid.gridToScreen(12, 7);
-        this.boss = new Boss(bossIso.x, bossIso.y);
-        addEnemy('alien_drone', 10, 10);
-        addEnemy('alien_drone', 14, 10);
+        // Precursor Ruins Chamber
+        addObj('precursor_pedestal', 14, 6);
+        addObj('precursor_pedestal', 16, 6);
+        addObj('precursor_pedestal', 15, 5);
+        addObj('precursor_chest', 15, 6);
+        addEnemy('precursor_golem', 15, 7);
+      } else if (reg.biomeType === 'alien_core') {
+        questSystem.updateObjective('celestial_reckoning', 'enter_core', 1);
+        if (!this.bossDefeated) {
+          const bossIso = IsometricGrid.gridToScreen(12, 7);
+          this.boss = new Boss(bossIso.x, bossIso.y);
+          addEnemy('alien_drone', 10, 10);
+          addEnemy('alien_drone', 14, 10);
+        }
+        addObj('campfire', 12, 18, true);
       }
-      addObj('campfire', 12, 18, true);
-    }
+    } // end if(!MOVEMENT_ONLY) spawn block
 
     // Map chokepoints to perimeter tiles
     if (reg.chokepoints.length > 0) {
@@ -437,159 +446,160 @@ export class Game {
     this.player.update(delta);
     this.turnSystem.updateFloatingTexts(delta);
 
-    // Proximity Checks & Prompts on Isometric Grid
-    this.interactionPrompt = null;
-    this.nearbyInteractable = null;
+    // ─────────────────────────────────────────────────────────────────────
+    // All combat, enemy AI, survival and interaction logic is disabled
+    // while MOVEMENT_ONLY = true. Only player movement & camera are active.
+    // ─────────────────────────────────────────────────────────────────────
+    if (!Game.MOVEMENT_ONLY) {
+      // Proximity Checks & Prompts on Isometric Grid
+      this.interactionPrompt = null;
+      this.nearbyInteractable = null;
 
-    let isNearCampfire = false;
-    for (const obj of this.worldObjects) {
-      if (Math.abs(obj.gx - this.playerGx) <= 1 && Math.abs(obj.gy - this.playerGy) <= 1) {
-        if (obj.type === 'campfire' && obj.isLit) {
-          isNearCampfire = true;
-          this.interactionPrompt = '[Espacio / ⏳] Descansar junto a la Fogata (+Calor & Estamina)';
-          this.nearbyInteractable = { type: 'object', target: obj };
-        } else if (obj.type === 'campfire' && !obj.isLit) {
-          this.interactionPrompt = '[Toque / E] Encender Fogata de Supervivencia';
-          this.nearbyInteractable = { type: 'object', target: obj };
-        } else if (!obj.isDepleted) {
-          this.interactionPrompt = `[Toque] Recolectar ${obj.type === 'forage_bush' ? 'Bayas' : 'Recursos'}`;
-          this.nearbyInteractable = { type: 'object', target: obj };
-        }
-      }
-    }
-
-    for (const npc of this.npcs) {
-      if (Math.abs(npc.gx - this.playerGx) <= 1 && Math.abs(npc.gy - this.playerGy) <= 1) {
-        this.interactionPrompt = `[Hablar] ${npc.name}`;
-        this.nearbyInteractable = { type: 'npc', target: npc };
-      }
-    }
-
-    for (const cp of this.currentRegion.chokepoints) {
-      const cpgx = (cp as any).gx ?? Math.round(cp.x / IsometricGrid.TILE_WIDTH);
-      const cpgy = (cp as any).gy ?? Math.round(cp.y / IsometricGrid.TILE_HEIGHT);
-      if (Math.abs(this.playerGx - cpgx) <= 1 && Math.abs(this.playerGy - cpgy) <= 1) {
-        if (cp.targetRegionId === 'alien_core' && !this.player.getItemCount('alien_translator_device')) {
-          this.interactionPrompt = '⚠️ Barrera Alienígena Impenetrable (Requiere Dispositivo de Traducción)';
-          continue;
-        }
-        this.interactionPrompt = `[Entrar] Viajar a: ${cp.name}`;
-        this.nearbyInteractable = { type: 'chokepoint', target: cp };
-      }
-    }
-
-    if (this.input.interactPressed && this.nearbyInteractable) {
-      this.input.interactPressed = false;
-      this.performInteraction(this.nearbyInteractable);
-    }
-
-    if (this.input.attackPressed) {
-      this.input.attackPressed = false;
-      if (this.player.attack()) {
-        this.resolveMeleeAttack();
-      }
-    }
-
-    if (this.input.dodgePressed) {
-      this.input.dodgePressed = false;
-      this.triggerDodgeAction();
-    }
-
-    if (this.input.bowPressed) {
-      this.input.bowPressed = false;
-      this.triggerBowAction();
-    }
-
-    // Update Arrows & Arrow Collisions (Fase 2.1)
-    for (let i = this.arrows.length - 1; i >= 0; i--) {
-      const arrow = this.arrows[i];
-      arrow.update(delta, this.enemies, this.boss, (x, y, color) => {
-        particleSystem.spawnSparks(x, y, color, 8);
-        particleSystem.spawnHitBlood(x, y, '#b91c1c', 6);
-      });
-      if (!arrow.isAlive) {
-        this.arrows.splice(i, 1);
-      }
-    }
-
-    // Update Combat & Dash Particle Engine (Fase 2.2)
-    particleSystem.update(delta);
-    if (this.player.isDashing) {
-      particleSystem.spawnDashDust(this.player.x, this.player.y, 1);
-    }
-
-    // Check Bear Trap triggers on enemies (Fase 2.3)
-    for (const obj of this.worldObjects) {
-      if (obj.type === 'bear_trap' && !obj.isDepleted) {
-        for (const enemy of this.enemies) {
-          if (enemy.isAlive && Math.hypot(enemy.x - obj.x, enemy.y - obj.y) <= 22) {
-            obj.isDepleted = true;
-            enemy.takeDamage(35, this.player);
-            enemy.freeze(4.5);
-            soundManager.playArrowImpact();
-            particleSystem.spawnSparks(obj.x, obj.y, '#94a3b8', 12);
-            this.showNotification('¡Una bestia cayó en la Trampa de Mandíbulas!');
-            break;
+      let isNearCampfire = false;
+      for (const obj of this.worldObjects) {
+        if (Math.abs(obj.gx - this.playerGx) <= 1 && Math.abs(obj.gy - this.playerGy) <= 1) {
+          if (obj.type === 'campfire' && obj.isLit) {
+            isNearCampfire = true;
+            this.interactionPrompt = '[Espacio / ⏳] Descansar junto a la Fogata (+Calor & Estamina)';
+            this.nearbyInteractable = { type: 'object', target: obj };
+          } else if (obj.type === 'campfire' && !obj.isLit) {
+            this.interactionPrompt = '[Toque / E] Encender Fogata de Supervivencia';
+            this.nearbyInteractable = { type: 'object', target: obj };
+          } else if (!obj.isDepleted) {
+            this.interactionPrompt = `[Toque] Recolectar ${obj.type === 'forage_bush' ? 'Bayas' : 'Recursos'}`;
+            this.nearbyInteractable = { type: 'object', target: obj };
           }
         }
       }
-    }
 
-    // Update Enemies
-    for (let i = this.enemies.length - 1; i >= 0; i--) {
-      const enemy = this.enemies[i];
-      enemy.update(this.player, effectiveDelta);
-      if (!enemy.isAlive) {
-        if (this.currentRegion.tribeId) {
-          const tribe = TRIBES_DATA[this.currentRegion.tribeId];
-          if (tribe && !tribe.trial.completed) {
-            tribe.trial.currentCount = Math.min(tribe.trial.targetCount, tribe.trial.currentCount + 1);
-            this.showNotification(`¡Progreso de Prueba Tribal! (${tribe.trial.currentCount}/${tribe.trial.targetCount})`);
-            if (tribe.trial.currentCount >= tribe.trial.targetCount) {
-              tribe.trial.completed = true;
-              questSystem.updateObjective('tribal_initiation', 'complete_trial', 1);
+      for (const npc of this.npcs) {
+        if (Math.abs(npc.gx - this.playerGx) <= 1 && Math.abs(npc.gy - this.playerGy) <= 1) {
+          this.interactionPrompt = `[Hablar] ${npc.name}`;
+          this.nearbyInteractable = { type: 'npc', target: npc };
+        }
+      }
+
+      for (const cp of this.currentRegion.chokepoints) {
+        const cpgx = (cp as any).gx ?? Math.round(cp.x / IsometricGrid.TILE_WIDTH);
+        const cpgy = (cp as any).gy ?? Math.round(cp.y / IsometricGrid.TILE_HEIGHT);
+        if (Math.abs(this.playerGx - cpgx) <= 1 && Math.abs(this.playerGy - cpgy) <= 1) {
+          if (cp.targetRegionId === 'alien_core' && !this.player.getItemCount('alien_translator_device')) {
+            this.interactionPrompt = '⚠️ Barrera Alienígena Impenetrable (Requiere Dispositivo de Traducción)';
+            continue;
+          }
+          this.interactionPrompt = `[Entrar] Viajar a: ${cp.name}`;
+          this.nearbyInteractable = { type: 'chokepoint', target: cp };
+        }
+      }
+
+      if (this.input.interactPressed && this.nearbyInteractable) {
+        this.input.interactPressed = false;
+        this.performInteraction(this.nearbyInteractable);
+      }
+
+      if (this.input.attackPressed) {
+        this.input.attackPressed = false;
+        if (this.player.attack()) {
+          this.resolveMeleeAttack();
+        }
+      }
+
+      if (this.input.dodgePressed) {
+        this.input.dodgePressed = false;
+        this.triggerDodgeAction();
+      }
+
+      if (this.input.bowPressed) {
+        this.input.bowPressed = false;
+        this.triggerBowAction();
+      }
+
+      // Update Arrows & Arrow Collisions (Fase 2.1)
+      for (let i = this.arrows.length - 1; i >= 0; i--) {
+        const arrow = this.arrows[i];
+        arrow.update(delta, this.enemies, this.boss, (x, y, color) => {
+          particleSystem.spawnSparks(x, y, color, 8);
+          particleSystem.spawnHitBlood(x, y, '#b91c1c', 6);
+        });
+        if (!arrow.isAlive) {
+          this.arrows.splice(i, 1);
+        }
+      }
+
+      // Check Bear Trap triggers on enemies (Fase 2.3)
+      for (const obj of this.worldObjects) {
+        if (obj.type === 'bear_trap' && !obj.isDepleted) {
+          for (const enemy of this.enemies) {
+            if (enemy.isAlive && Math.hypot(enemy.x - obj.x, enemy.y - obj.y) <= 22) {
+              obj.isDepleted = true;
+              enemy.takeDamage(35, this.player);
+              enemy.freeze(4.5);
+              soundManager.playArrowImpact();
+              particleSystem.spawnSparks(obj.x, obj.y, '#94a3b8', 12);
+              this.showNotification('¡Una bestia cayó en la Trampa de Mandíbulas!');
+              break;
             }
           }
         }
-        this.enemies.splice(i, 1);
       }
-    }
 
-    // Update Final Boss
-    if (this.boss && this.boss.isAlive) {
-      this.boss.update(this.player, effectiveDelta, (newPhase: BossPhase) => {
-        if (newPhase === 'cryogenic') {
-          this.weatherSystem.setWeather('blizzard');
-          this.showNotification('¡El coloso activa la FASE CRIOGÉNICA! (Ventisca Ártica)');
-        } else if (newPhase === 'toxic_miasma') {
-          this.weatherSystem.setWeather('toxic_fog');
-          this.showNotification('¡El coloso activa la FASE DE MIASMA TÓXICO! (Gases Corrosivos)');
-        } else if (newPhase === 'volcanic_thermal') {
-          this.weatherSystem.setWeather('sandstorm');
-          this.showNotification('¡El coloso activa la FASE TÉRMICA VOLCÁNICA! (Calor Sofocante)');
-        } else if (newPhase === 'gravitational_void') {
-          this.weatherSystem.setWeather('alien_aurora');
-          this.showNotification('¡El coloso activa la FASE DE PENUMBRA GRAVITACIONAL!');
+      // Update Enemies
+      for (let i = this.enemies.length - 1; i >= 0; i--) {
+        const enemy = this.enemies[i];
+        enemy.update(this.player, effectiveDelta);
+        if (!enemy.isAlive) {
+          if (this.currentRegion.tribeId) {
+            const tribe = TRIBES_DATA[this.currentRegion.tribeId];
+            if (tribe && !tribe.trial.completed) {
+              tribe.trial.currentCount = Math.min(tribe.trial.targetCount, tribe.trial.currentCount + 1);
+              this.showNotification(`¡Progreso de Prueba Tribal! (${tribe.trial.currentCount}/${tribe.trial.targetCount})`);
+              if (tribe.trial.currentCount >= tribe.trial.targetCount) {
+                tribe.trial.completed = true;
+                questSystem.updateObjective('tribal_initiation', 'complete_trial', 1);
+              }
+            }
+          }
+          this.enemies.splice(i, 1);
         }
-      });
-
-      if (!this.boss.isAlive && !this.bossDefeated) {
-        this.bossDefeated = true;
-        questSystem.updateObjective('celestial_reckoning', 'defeat_herald', 1);
-        this.endingModal.show((choice) => {
-          this.showNotification(`Has elegido: ${choice === 'dismantle' ? 'Desmantelar' : 'Integrar'}. ¡Mundo Pacificado!`);
-          this.weatherSystem.setWeather('clear');
-        });
       }
-    }
 
-    // Survival Tick with Night and Torch Protection
-    const isColdProtected = isNearCampfire || this.player.isHoldingTorch;
-    this.survivalSystem.update(this.player, this.currentRegion, isColdProtected, false, delta);
+      // Update Final Boss
+      if (this.boss && this.boss.isAlive) {
+        this.boss.update(this.player, effectiveDelta, (newPhase: BossPhase) => {
+          if (newPhase === 'cryogenic') {
+            this.weatherSystem.setWeather('blizzard');
+            this.showNotification('¡El coloso activa la FASE CRIOGÉNICA! (Ventisca Ártica)');
+          } else if (newPhase === 'toxic_miasma') {
+            this.weatherSystem.setWeather('toxic_fog');
+            this.showNotification('¡El coloso activa la FASE DE MIASMA TÓXICO! (Gases Corrosivos)');
+          } else if (newPhase === 'volcanic_thermal') {
+            this.weatherSystem.setWeather('sandstorm');
+            this.showNotification('¡El coloso activa la FASE TÉRMICA VOLCÁNICA! (Calor Sofocante)');
+          } else if (newPhase === 'gravitational_void') {
+            this.weatherSystem.setWeather('alien_aurora');
+            this.showNotification('¡El coloso activa la FASE DE PENUMBRA GRAVITACIONAL!');
+          }
+        });
 
-    if (this.player.vitals.health <= 0 && !this.testWorldModal.godMode) {
-      this.handlePlayerDeath();
-    }
+        if (!this.boss.isAlive && !this.bossDefeated) {
+          this.bossDefeated = true;
+          questSystem.updateObjective('celestial_reckoning', 'defeat_herald', 1);
+          this.endingModal.show((choice) => {
+            this.showNotification(`Has elegido: ${choice === 'dismantle' ? 'Desmantelar' : 'Integrar'}. ¡Mundo Pacificado!`);
+            this.weatherSystem.setWeather('clear');
+          });
+        }
+      }
+
+      // Survival Tick with Night and Torch Protection
+      const isColdProtected = isNearCampfire || this.player.isHoldingTorch;
+      this.survivalSystem.update(this.player, this.currentRegion, isColdProtected, false, delta);
+
+      if (this.player.vitals.health <= 0 && !this.testWorldModal.godMode) {
+        this.handlePlayerDeath();
+      }
+    } // end if(!MOVEMENT_ONLY) full-game block
+
 
     // Camera Smooth Follow (Centered on player's visual torso in 2.5D axonometric projection)
     const targetCamX = this.player.x - this.canvas.width / 2;
@@ -661,20 +671,40 @@ export class Game {
   public stepPlayer(dx: number, dy: number) {
     if (this.player.vitals.health <= 0) return;
 
-    if (dx < 0 && dy === 0) this.player.facing = 'up'; // NW
-    else if (dx === 0 && dy < 0) this.player.facing = 'right'; // NE
-    else if (dx > 0 && dy === 0) this.player.facing = 'down'; // SE
-    else if (dx === 0 && dy > 0) this.player.facing = 'left'; // SW
+    // Update facing for all 8 possible grid directions
+    if      (dx < 0 && dy < 0) this.player.facing = 'up';    // NW diagonal
+    else if (dx < 0 && dy === 0) this.player.facing = 'up';  // NW axis
+    else if (dx === 0 && dy < 0) this.player.facing = 'right'; // NE axis
+    else if (dx > 0 && dy < 0) this.player.facing = 'right'; // NE diagonal
+    else if (dx > 0 && dy === 0) this.player.facing = 'down'; // SE axis
+    else if (dx > 0 && dy > 0) this.player.facing = 'down';  // SE diagonal
+    else if (dx === 0 && dy > 0) this.player.facing = 'left'; // SW axis
+    else if (dx < 0 && dy > 0) this.player.facing = 'left';  // SW diagonal
 
     const targetGx = this.playerGx + dx;
     const targetGy = this.playerGy + dy;
 
     if (!this.grid.isPassable(targetGx, targetGy)) {
-      this.showNotification('⚠️ Terreno o acantilado infranqueable');
+      this.showNotification('⚠️ Terreno infranqueable');
       return;
     }
 
-    // Check if target tile has an alive enemy (Turn-based bump attack)
+    // ─── MOVEMENT-ONLY phase: skip all combat and object interaction ───
+    if (Game.MOVEMENT_ONLY) {
+      this.playerGx = targetGx;
+      this.playerGy = targetGy;
+      this.player.gx = targetGx;
+      this.player.gy = targetGy;
+      const targetIso = IsometricGrid.gridToScreen(this.playerGx, this.playerGy);
+      this.targetPlayerX = targetIso.x;
+      this.targetPlayerY = targetIso.y;
+      soundManager.playFootstep('dirt');
+      const sight = this.player.isHoldingTorch ? 7 : 5;
+      this.grid.updateFogOfWar(this.playerGx, this.playerGy, sight, []);
+      return;
+    }
+
+    // ─── Full-game mode: Check enemy bump attack ───
     const targetEnemy = this.enemies.find(e => e.isAlive && e.gx === targetGx && e.gy === targetGy);
 
     if (targetEnemy) {
@@ -684,7 +714,6 @@ export class Game {
       const targetScreen = IsometricGrid.gridToScreen(targetGx, targetGy);
       this.turnSystem.addFloatingText(`-${dmg}`, targetScreen.x, targetScreen.y - 20, '#ffd700');
       particleSystem.spawnSparks(targetScreen.x, targetScreen.y, '#ffd700', 8);
-
       this.turnSystem.advanceTurn(this.player, this.enemies, this.boss, this.worldObjects, this.currentRegion, this.grid, false);
       return;
     }
@@ -759,6 +788,7 @@ export class Game {
 
   public waitPlayer() {
     if (this.player.vitals.health <= 0) return;
+    if (Game.MOVEMENT_ONLY) return; // No turn system in movement-only phase
     this.turnSystem.advanceTurn(this.player, this.enemies, this.boss, this.worldObjects, this.currentRegion, this.grid, true);
     const sight = this.player.isHoldingTorch ? 7 : 5;
     this.grid.updateFogOfWar(this.playerGx, this.playerGy, sight, this.getLitCampfires());
@@ -771,13 +801,10 @@ export class Game {
     }
     const dx = gx - this.playerGx;
     const dy = gy - this.playerGy;
-    if (Math.abs(dx) + Math.abs(dy) === 1) {
-      this.stepPlayer(dx, dy);
-    } else {
-      const stepX = dx !== 0 ? (dx > 0 ? 1 : -1) : 0;
-      const stepY = stepX === 0 ? (dy > 0 ? 1 : -1) : 0;
-      this.stepPlayer(stepX, stepY);
-    }
+    // Support all 8 adjacent tiles (including diagonals)
+    const stepX = dx !== 0 ? (dx > 0 ? 1 : -1) : 0;
+    const stepY = dy !== 0 ? (dy > 0 ? 1 : -1) : 0;
+    this.stepPlayer(stepX, stepY);
   }
 
   public attackNearest() {

@@ -97,22 +97,22 @@ canvas#game-canvas {
   position: absolute;
   bottom: 24px;
   left: 24px;
-  width: 174px;
-  height: 174px;
+  width: 186px;
+  height: 186px;
   z-index: 45;
   pointer-events: none;
   touch-action: manipulation;
 }
 
-/* 2.5D Diamond D-Pad Layout */
+/* 2.5D Diamond D-Pad Layout — 3×3 grid, 9 buttons (8 directions + wait) */
 .iso-dpad {
   position: relative;
-  width: 174px;
-  height: 174px;
+  width: 186px;
+  height: 186px;
   pointer-events: auto;
   display: grid;
-  grid-template-columns: 54px 54px 54px;
-  grid-template-rows: 54px 54px 54px;
+  grid-template-columns: repeat(3, 58px);
+  grid-template-rows: repeat(3, 58px);
   gap: 6px;
   user-select: none;
   -webkit-user-select: none;
@@ -124,13 +124,13 @@ canvas#game-canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
-  height: 54px;
+  width: 58px;
+  height: 58px;
   background: rgba(15, 23, 42, 0.9);
   border: 2px solid var(--border-gold);
-  border-radius: 14px;
+  border-radius: 12px;
   color: #f8fafc;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: bold;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
@@ -139,45 +139,36 @@ canvas#game-canvas {
 }
 
 .iso-btn:active {
-  transform: scale(0.92);
+  transform: scale(0.90);
   background: rgba(212, 175, 55, 0.45);
   border-color: #ffd700;
   box-shadow: 0 0 16px rgba(212, 175, 55, 0.8);
 }
 
-.iso-btn-nw {
-  grid-column: 1;
-  grid-row: 1;
-}
+/* Diagonal corners (N/S/W/E in isometric space) */
+.iso-btn-n  { grid-column: 1; grid-row: 1; }
+.iso-btn-nw { grid-column: 2; grid-row: 1; }
+.iso-btn-ne { grid-column: 3; grid-row: 1; }
+.iso-btn-w  { grid-column: 1; grid-row: 2; }
+.iso-btn-e  { grid-column: 3; grid-row: 2; }
+.iso-btn-sw { grid-column: 1; grid-row: 3; }
+.iso-btn-se { grid-column: 2; grid-row: 3; }
+.iso-btn-s  { grid-column: 3; grid-row: 3; }
 
-.iso-btn-ne {
-  grid-column: 3;
-  grid-row: 1;
-}
-
+/* Center wait button — distinct style */
 .iso-btn-wait {
   grid-column: 2;
   grid-row: 2;
   border-color: #38bdf8;
   background: rgba(56, 189, 248, 0.25);
   border-radius: 50%;
-  font-size: 24px;
+  font-size: 22px;
 }
 
 .iso-btn-wait:active {
   background: rgba(56, 189, 248, 0.55);
   border-color: #7dd3fc;
   box-shadow: 0 0 18px rgba(56, 189, 248, 0.9);
-}
-
-.iso-btn-sw {
-  grid-column: 1;
-  grid-row: 3;
-}
-
-.iso-btn-se {
-  grid-column: 3;
-  grid-row: 3;
 }
 
 /* On-screen Mobile Touch Buttons */
