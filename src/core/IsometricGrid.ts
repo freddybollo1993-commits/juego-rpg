@@ -1,6 +1,7 @@
 // IsometricGrid.ts - 2.5D Axonometric Diorama Engine, Biome Slabs & Fog of War (The Wild Darkness style)
 
 import { RegionData } from '../data/regions';
+import { tileAtlas } from './TileAtlas';
 
 export interface IsoTile {
   gx: number;
@@ -250,6 +251,25 @@ export class IsometricGrid {
     region: RegionData,
     isDim: boolean
   ) {
+    // Sprite path: use the biome's tile atlas when it has art for this terrain
+    ctx.imageSmoothingEnabled = false; // keep pixel art crisp
+    if (tileAtlas.draw(ctx, region.biomeType, tile.terrainType, tile.accentVariant, px, py)) {
+      if (isDim) {
+        // Explored but out of sight: darken the whole block silhouette
+        ctx.beginPath();
+        ctx.moveTo(px, py - halfH);
+        ctx.lineTo(px + halfW, py);
+        ctx.lineTo(px + halfW, py + depth);
+        ctx.lineTo(px, py + halfH + depth);
+        ctx.lineTo(px - halfW, py + depth);
+        ctx.lineTo(px - halfW, py);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(10, 16, 30, 0.72)';
+        ctx.fill();
+      }
+      return;
+    }
+
     const colors = this.getTileColors(tile.terrainType, region, tile.accentVariant);
 
     // 1. Right Slab Face (Shaded dark)

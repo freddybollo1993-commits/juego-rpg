@@ -23,6 +23,7 @@ import { WorldMapModal } from '../ui/WorldMapModal';
 import { IsometricGrid } from './IsometricGrid';
 import { TurnSystem } from './TurnSystem';
 import { assetManager } from './AssetManager';
+import { tileAtlas } from './TileAtlas';
 import { soundManager } from '../audio/SoundManager';
 import { questSystem } from '../systems/QuestSystem';
 import { Arrow } from '../entities/Arrow';
@@ -113,6 +114,7 @@ export class Game {
 
     // Preload concept art assets
     assetManager.preloadAll();
+    tileAtlas.preloadAll();
 
     // Default start region: Tutorial Beach (GDD Sec. 10.4)
     this.currentRegion = REGIONS_DATA['beach'];
