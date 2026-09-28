@@ -27,6 +27,8 @@ export class WorldObject {
   public type: WorldObjectType;
   public x: number;
   public y: number;
+  public gx: number = 0;
+  public gy: number = 0;
   public width: number;
   public height: number;
   public isInteractable: boolean = true;
@@ -39,11 +41,13 @@ export class WorldObject {
   public isLit: boolean = false;
   public fireTimer: number = 0; // seconds remaining
 
-  constructor(type: WorldObjectType, x: number, y: number, dropItemId?: string) {
+  constructor(type: WorldObjectType, x: number, y: number, dropItemId?: string, gx: number = 0, gy: number = 0) {
     this.id = `obj_${Date.now()}_${Math.random()}`;
     this.type = type;
     this.x = x;
     this.y = y;
+    this.gx = gx;
+    this.gy = gy;
     this.dropItemId = dropItemId;
 
     switch (type) {

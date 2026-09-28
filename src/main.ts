@@ -30,21 +30,6 @@ function initApp() {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 
-  // Mobile Virtual Joystick (NippleJS) bound to touch-controls-left zone
-  const touchZone = document.getElementById('touch-controls-left') || container;
-  const joystick = new VirtualJoystick();
-  joystick.init(
-    touchZone,
-    (vx, vy) => {
-      game.input.moveX = vx;
-      game.input.moveY = vy;
-    },
-    () => {
-      game.input.moveX = 0;
-      game.input.moveY = 0;
-    }
-  );
-
   // Audio unmute on first gesture
   const unmuteSound = () => {
     soundManager.init();
@@ -137,14 +122,19 @@ function initApp() {
   bindTouchOrClick('btn-touch-bow', () => game.triggerBowAction());
 
   // Direct Click / Tap on Canvas to Interact or Move to Isometric Tile
-  canvas.addEventListener('click', (e) => {
+  const handleCanvasInteraction = (clientX: number, clientY: number) => {
     const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
+    const clickX = clientX - rect.left;
+    const clickY = clientY - rect.top;
     const worldX = clickX + game.cameraX;
     const worldY = clickY + game.cameraY;
     const gridPos = (game.grid.constructor as any).screenToGrid(worldX, worldY);
+    game.grid.targetTile = { gx: gridPos.gx, gy: gridPos.gy };
     game.interactTile(gridPos.gx, gridPos.gy);
+  };
+
+  canvas.addEventListener('click', (e) => {
+    handleCanvasInteraction(e.clientX, e.clientY);
   });
 
   // Mouse hover tile highlight
@@ -171,7 +161,13 @@ function initApp() {
       game.stepPlayer(-1, 0); // NW
     } else if (e.key === ' ' || e.key === '.') {
       e.preventDefault();
-      game.waitPlayer(); // Rest
+      game.waitPlayer(); // Rest / Guard Turn
+    } else if (e.key === 'b' || e.key === 'B') {
+      game.triggerBowAction(); // Turn-based bow shot
+    } else if (e.key === 'f' || e.key === 'F') {
+      game.attackNearest(); // Turn-based melee attack
+    } else if (e.key === 'i' || e.key === 'I') {
+      game.openInventory();
     } else if (e.key === 'm' || e.key === 'M') {
       game.openWorldMap();
     } else if (e.key === 'x' || e.key === 'X') {

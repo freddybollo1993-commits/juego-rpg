@@ -192,35 +192,69 @@ export class Game {
     const playerIso = IsometricGrid.gridToScreen(this.playerGx, this.playerGy);
     this.player.x = playerIso.x;
     this.player.y = playerIso.y;
+    this.player.gx = this.playerGx;
+    this.player.gy = this.playerGy;
     this.targetPlayerX = playerIso.x;
     this.targetPlayerY = playerIso.y;
 
-    // Entity placement helpers
-    const addObj = (type: any, gx: number, gy: number, isLit?: boolean, dropItem?: string) => {
+    // Strict 1-Tile Occupancy Registry: guarantees no two entities or objects share a cell
+    const occupiedTiles = new Set<string>();
+    occupiedTiles.add(`${this.playerGx},${this.playerGy}`);
+
+    const findFreeTile = (preferGx: number, preferGy: number): { gx: number; gy: number } => {
+      const key = `${preferGx},${preferGy}`;
+      if (!occupiedTiles.has(key) && this.grid.isPassable(preferGx, preferGy)) {
+        occupiedTiles.add(key);
+        return { gx: preferGx, gy: preferGy };
+      }
+      // Spiral search for closest passable and unoccupied tile
+      for (let r = 1; r <= 6; r++) {
+        for (let dx = -r; dx <= r; dx++) {
+          for (let dy = -r; dy <= r; dy++) {
+            if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+            const testGx = preferGx + dx;
+            const testGy = preferGy + dy;
+            const testKey = `${testGx},${testGy}`;
+            if (this.grid.isPassable(testGx, testGy) && !occupiedTiles.has(testKey)) {
+              occupiedTiles.add(testKey);
+              return { gx: testGx, gy: testGy };
+            }
+          }
+        }
+      }
+      occupiedTiles.add(key);
+      return { gx: preferGx, gy: preferGy };
+    };
+
+    // Entity placement helpers with discrete tile locking
+    const addObj = (type: any, preferGx: number, preferGy: number, isLit?: boolean, dropItem?: string) => {
+      const { gx, gy } = findFreeTile(preferGx, preferGy);
       const elev = (this.grid.tiles[gx] && this.grid.tiles[gx][gy]) ? this.grid.tiles[gx][gy].elevation : 0;
       const iso = IsometricGrid.gridToScreen(gx, gy, elev);
-      const obj = new WorldObject(type, iso.x, iso.y, dropItem);
+      const obj = new WorldObject(type, iso.x, iso.y, dropItem, gx, gy);
       if (isLit !== undefined) obj.isLit = isLit;
       this.worldObjects.push(obj);
       return obj;
     };
 
-    const addEnemy = (type: any, gx: number, gy: number) => {
+    const addEnemy = (type: any, preferGx: number, preferGy: number) => {
+      const { gx, gy } = findFreeTile(preferGx, preferGy);
       const elev = (this.grid.tiles[gx] && this.grid.tiles[gx][gy]) ? this.grid.tiles[gx][gy].elevation : 0;
       const iso = IsometricGrid.gridToScreen(gx, gy, elev);
-      const enemy = new Enemy(type, iso.x, iso.y);
+      const enemy = new Enemy(type, iso.x, iso.y, gx, gy);
       this.enemies.push(enemy);
       return enemy;
     };
 
     // Spawn Tribe Chief if region has one
     if (reg.tribeId && TRIBES_DATA[reg.tribeId]) {
-      const chiefIso = IsometricGrid.gridToScreen(11, 10);
-      this.npcs.push(new NPC(reg.tribeId, chiefIso.x, chiefIso.y));
+      const chiefPos = findFreeTile(11, 10);
+      const chiefIso = IsometricGrid.gridToScreen(chiefPos.gx, chiefPos.gy);
+      this.npcs.push(new NPC(reg.tribeId, chiefIso.x, chiefIso.y, chiefPos.gx, chiefPos.gy));
       addObj('campfire', 12, 10, true);
     }
 
-    // Spawn Region-specific Objects & Enemies in Isometric Diorama
+    // Spawn Region-specific Objects & Enemies in Isometric Diorama (1 item per tile)
     if (reg.biomeType === 'beach') {
       // Primary Landing Site (Surrounding Player Spawn at 12, 12)
       addObj('campfire', 11, 13, false);
@@ -234,7 +268,7 @@ export class Game {
       addObj('coastal_palm', 16, 16);
       addObj('coastal_palm', 7, 16);
 
-      addObj('branch_pile', 11, 10);
+      addObj('branch_pile', 10, 11);
       addObj('branch_pile', 13, 13);
       addObj('flint_rock', 14, 11);
       addObj('flint_rock', 10, 12);
@@ -300,12 +334,16 @@ export class Game {
       const iso1 = IsometricGrid.gridToScreen(22, 12);
       cp1.x = iso1.x;
       cp1.y = iso1.y;
+      (cp1 as any).gx = 22;
+      (cp1 as any).gy = 12;
     }
     if (reg.chokepoints.length > 1) {
       const cp2 = reg.chokepoints[1];
       const iso2 = IsometricGrid.gridToScreen(12, 2);
       cp2.x = iso2.x;
       cp2.y = iso2.y;
+      (cp2 as any).gx = 12;
+      (cp2 as any).gy = 2;
     }
 
     // Initial Fog of War calculation
@@ -405,9 +443,7 @@ export class Game {
 
     let isNearCampfire = false;
     for (const obj of this.worldObjects) {
-      const ogx = Math.round(obj.x / IsometricGrid.TILE_WIDTH);
-      const ogy = Math.round(obj.y / IsometricGrid.TILE_HEIGHT);
-      if (Math.abs(ogx - this.playerGx) <= 1 && Math.abs(ogy - this.playerGy) <= 1) {
+      if (Math.abs(obj.gx - this.playerGx) <= 1 && Math.abs(obj.gy - this.playerGy) <= 1) {
         if (obj.type === 'campfire' && obj.isLit) {
           isNearCampfire = true;
           this.interactionPrompt = '[Espacio / ⏳] Descansar junto a la Fogata (+Calor & Estamina)';
@@ -423,17 +459,15 @@ export class Game {
     }
 
     for (const npc of this.npcs) {
-      const ngx = Math.round(npc.x / IsometricGrid.TILE_WIDTH);
-      const ngy = Math.round(npc.y / IsometricGrid.TILE_HEIGHT);
-      if (Math.abs(ngx - this.playerGx) <= 1 && Math.abs(ngy - this.playerGy) <= 1) {
+      if (Math.abs(npc.gx - this.playerGx) <= 1 && Math.abs(npc.gy - this.playerGy) <= 1) {
         this.interactionPrompt = `[Hablar] ${npc.name}`;
         this.nearbyInteractable = { type: 'npc', target: npc };
       }
     }
 
     for (const cp of this.currentRegion.chokepoints) {
-      const cpgx = Math.round(cp.x / IsometricGrid.TILE_WIDTH);
-      const cpgy = Math.round(cp.y / IsometricGrid.TILE_HEIGHT);
+      const cpgx = (cp as any).gx ?? Math.round(cp.x / IsometricGrid.TILE_WIDTH);
+      const cpgy = (cp as any).gy ?? Math.round(cp.y / IsometricGrid.TILE_HEIGHT);
       if (Math.abs(this.playerGx - cpgx) <= 1 && Math.abs(this.playerGy - cpgy) <= 1) {
         if (cp.targetRegionId === 'alien_core' && !this.player.getItemCount('alien_translator_device')) {
           this.interactionPrompt = '⚠️ Barrera Alienígena Impenetrable (Requiere Dispositivo de Traducción)';
@@ -557,11 +591,11 @@ export class Game {
       this.handlePlayerDeath();
     }
 
-    // Camera Smooth Follow
+    // Camera Smooth Follow (Centered on player's visual torso in 2.5D axonometric projection)
     const targetCamX = this.player.x - this.canvas.width / 2;
-    const targetCamY = this.player.y - this.canvas.height / 2;
-    this.cameraX += (targetCamX - this.cameraX) * 0.1;
-    this.cameraY += (targetCamY - this.cameraY) * 0.1;
+    const targetCamY = (this.player.y - 18) - this.canvas.height / 2;
+    this.cameraX += (targetCamX - this.cameraX) * 0.18;
+    this.cameraY += (targetCamY - this.cameraY) * 0.18;
 
     // Auto-Save
     this.autoSaveTimer += delta;
@@ -640,13 +674,8 @@ export class Game {
       return;
     }
 
-    // Check if target tile has an alive enemy
-    const targetEnemy = this.enemies.find(e => {
-      if (!e.isAlive) return false;
-      const egx = Math.round(e.x / IsometricGrid.TILE_WIDTH);
-      const egy = Math.round(e.y / IsometricGrid.TILE_HEIGHT);
-      return egx === targetGx && egy === targetGy;
-    });
+    // Check if target tile has an alive enemy (Turn-based bump attack)
+    const targetEnemy = this.enemies.find(e => e.isAlive && e.gx === targetGx && e.gy === targetGy);
 
     if (targetEnemy) {
       const dmg = this.player.getMeleeDamage();
@@ -661,11 +690,7 @@ export class Game {
     }
 
     // Check if target tile has an interactable object
-    const targetObj = this.worldObjects.find(obj => {
-      const ogx = Math.round(obj.x / IsometricGrid.TILE_WIDTH);
-      const ogy = Math.round(obj.y / IsometricGrid.TILE_HEIGHT);
-      return ogx === targetGx && ogy === targetGy;
-    });
+    const targetObj = this.worldObjects.find(obj => obj.gx === targetGx && obj.gy === targetGy);
 
     if (targetObj) {
       if (targetObj.type === 'campfire' && !targetObj.isLit) {
@@ -704,8 +729,11 @@ export class Game {
         this.showNotification('🪵 ¡Recolectaste 3x Ramas!');
         this.turnSystem.advanceTurn(this.player, this.enemies, this.boss, this.worldObjects, this.currentRegion, this.grid, false);
         return;
-      } else if (targetObj.type === 'workbench') {
+      } else if (targetObj.type === 'workbench' || targetObj.type === 'anvil' || targetObj.type === 'tanner' || targetObj.type === 'alchemy_station') {
         this.openInventory();
+        return;
+      } else if (targetObj.type === 'coastal_palm' || (targetObj.type === 'campfire' && targetObj.isLit)) {
+        this.showNotification('⚠️ Casilla ocupada por un objeto sólido.');
         return;
       }
     }
@@ -713,6 +741,8 @@ export class Game {
     // Step player to target tile
     this.playerGx = targetGx;
     this.playerGy = targetGy;
+    this.player.gx = targetGx;
+    this.player.gy = targetGy;
     const targetIso = IsometricGrid.gridToScreen(this.playerGx, this.playerGy);
     this.targetPlayerX = targetIso.x;
     this.targetPlayerY = targetIso.y;
@@ -753,15 +783,27 @@ export class Game {
   public attackNearest() {
     for (const enemy of this.enemies) {
       if (!enemy.isAlive) continue;
-      const egx = Math.round(enemy.x / IsometricGrid.TILE_WIDTH);
-      const egy = Math.round(enemy.y / IsometricGrid.TILE_HEIGHT);
-      if (Math.abs(egx - this.playerGx) + Math.abs(egy - this.playerGy) <= 1) {
-        this.stepPlayer(egx - this.playerGx, egy - this.playerGy);
+      const dx = Math.abs(enemy.gx - this.playerGx);
+      const dy = Math.abs(enemy.gy - this.playerGy);
+      if (dx <= 1 && dy <= 1 && (dx + dy > 0)) {
+        this.stepPlayer(enemy.gx - this.playerGx, enemy.gy - this.playerGy);
+        return;
+      }
+    }
+    if (this.boss && this.boss.isAlive) {
+      const dx = Math.abs(12 - this.playerGx);
+      const dy = Math.abs(7 - this.playerGy);
+      if (dx <= 2 && dy <= 2) {
+        const dmg = this.player.getMeleeDamage();
+        this.boss.takeMeleeDamage(dmg);
+        soundManager.playHit();
+        const bPos = IsometricGrid.gridToScreen(12, 7);
+        this.turnSystem.addFloatingText(`-${dmg}`, bPos.x, bPos.y - 30, '#ffd700');
+        this.turnSystem.advanceTurn(this.player, this.enemies, this.boss, this.worldObjects, this.currentRegion, this.grid, false);
         return;
       }
     }
     if (this.player.attack()) {
-      this.resolveMeleeAttack();
       this.waitPlayer();
     }
   }
@@ -775,9 +817,9 @@ export class Game {
   public isNearAnyLitCampfire(): boolean {
     for (const obj of this.worldObjects) {
       if (obj.type === 'campfire' && obj.isLit) {
-        const dx = Math.abs(Math.round(this.player.x / IsometricGrid.TILE_WIDTH) - Math.round(obj.x / IsometricGrid.TILE_WIDTH));
-        const dy = Math.abs(Math.round(this.player.y / IsometricGrid.TILE_HEIGHT) - Math.round(obj.y / IsometricGrid.TILE_HEIGHT));
-        if (dx <= 2 && dy <= 2) return true;
+        const dx = Math.abs(this.playerGx - obj.gx);
+        const dy = Math.abs(this.playerGy - obj.gy);
+        if (dx <= 1 && dy <= 1) return true;
       }
     }
     return false;
@@ -787,16 +829,16 @@ export class Game {
     return this.worldObjects
       .filter(o => o.type === 'campfire' && o.isLit)
       .map(o => ({
-        gx: Math.round(o.x / IsometricGrid.TILE_WIDTH),
-        gy: Math.round(o.y / IsometricGrid.TILE_HEIGHT),
+        gx: o.gx,
+        gy: o.gy,
         isLit: o.isLit
       }));
   }
 
   private checkChokepointStep() {
     for (const cp of this.currentRegion.chokepoints) {
-      const cpgx = Math.round(cp.x / IsometricGrid.TILE_WIDTH);
-      const cpgy = Math.round(cp.y / IsometricGrid.TILE_HEIGHT);
+      const cpgx = (cp as any).gx ?? Math.round(cp.x / IsometricGrid.TILE_WIDTH);
+      const cpgy = (cp as any).gy ?? Math.round(cp.y / IsometricGrid.TILE_HEIGHT);
       if (Math.abs(this.playerGx - cpgx) <= 1 && Math.abs(this.playerGy - cpgy) <= 1) {
         if (cp.targetRegionId === 'alien_core' && !this.player.getItemCount('alien_translator_device')) {
           this.showNotification('⚠️ Barrera Alienígena Impenetrable (Requiere Dispositivo de Traducción)');
@@ -867,17 +909,72 @@ export class Game {
   }
 
   public triggerBowAction(): boolean {
-    const arrow = this.player.shootBow();
+    if (this.player.vitals.stamina < 8) {
+      this.showNotification('¡Estamina insuficiente para tensar el arco!');
+      return false;
+    }
+    const arrowCount = this.player.getItemCount('fire_arrow') + this.player.getItemCount('frost_arrow') + this.player.getItemCount('flint_arrow');
+    if (arrowCount <= 0) {
+      this.showNotification('¡Sin flechas disponibles! Fabrica más en el Banco de Trabajo.');
+      return false;
+    }
+
+    // Find nearest alive enemy within 5 tiles
+    let targetEnemy: Enemy | null = null;
+    let closestDist = 999;
+    for (const enemy of this.enemies) {
+      if (!enemy.isAlive) continue;
+      const dist = Math.abs(enemy.gx - this.playerGx) + Math.abs(enemy.gy - this.playerGy);
+      if (dist <= 5 && dist < closestDist) {
+        closestDist = dist;
+        targetEnemy = enemy;
+      }
+    }
+
+    let targetAngle = 0;
+    if (targetEnemy) {
+      const ePos = IsometricGrid.gridToScreen(targetEnemy.gx, targetEnemy.gy);
+      targetAngle = Math.atan2(ePos.y - this.player.y, ePos.x - this.player.x);
+    } else {
+      if (this.player.facing === 'right') targetAngle = 0;
+      else if (this.player.facing === 'down') targetAngle = Math.PI / 2;
+      else if (this.player.facing === 'left') targetAngle = Math.PI;
+      else if (this.player.facing === 'up') targetAngle = -Math.PI / 2;
+    }
+
+    const arrow = this.player.shootBow(targetAngle);
     if (arrow) {
       this.arrows.push(arrow);
       particleSystem.spawnSparks(this.player.x, this.player.y - 6, '#ffd700', 5);
       const typeName = arrow.type === 'fire' ? 'Fuego' : arrow.type === 'frost' ? 'Escarcha' : 'Sílex';
-      this.showNotification(`¡Flecha de ${typeName} disparada!`);
+
+      if (targetEnemy) {
+        const dmg = arrow.damage;
+        targetEnemy.takeDamage(dmg, this.player);
+        soundManager.playHit();
+        const ePos = IsometricGrid.gridToScreen(targetEnemy.gx, targetEnemy.gy);
+
+        if (arrow.type === 'frost') {
+          targetEnemy.freezeTurns = 2;
+          this.turnSystem.addFloatingText(`-${dmg} HP (❄️ Congelado)`, ePos.x, ePos.y - 24, '#38bdf8');
+        } else if (arrow.type === 'fire') {
+          targetEnemy.burnTurns = 3;
+          this.turnSystem.addFloatingText(`-${dmg} HP (🔥 Quemadura)`, ePos.x, ePos.y - 24, '#f97316');
+        } else {
+          this.turnSystem.addFloatingText(`-${dmg} HP`, ePos.x, ePos.y - 20, '#ffd700');
+        }
+
+        particleSystem.spawnSparks(ePos.x, ePos.y, '#ffd700', 8);
+        this.showNotification(`🏹 ¡Flecha de ${typeName} impactó al enemigo!`);
+      } else {
+        this.showNotification(`🏹 ¡Flecha de ${typeName} disparada!`);
+      }
+
+      // Turn advances for tactical bow shot
+      this.turnSystem.advanceTurn(this.player, this.enemies, this.boss, this.worldObjects, this.currentRegion, this.grid, false);
+      const sight = this.player.isHoldingTorch ? 7 : 5;
+      this.grid.updateFogOfWar(this.playerGx, this.playerGy, sight, this.getLitCampfires());
       return true;
-    } else if (this.player.vitals.stamina < 8) {
-      this.showNotification('¡Estamina insuficiente para tensar el arco!');
-    } else {
-      this.showNotification('¡Sin flechas disponibles! Fabrica más en el Banco de Trabajo.');
     }
     return false;
   }

@@ -15,15 +15,20 @@ describe('2.5D Isometric Engine & Turn-Based Roguelike System (The Wild Darkness
     grid = new IsometricGrid(24, 24);
     turnSystem = new TurnSystem();
     player = new Player();
+    player.gx = 12;
+    player.gy = 12;
+    const iso = IsometricGrid.gridToScreen(12, 12);
+    player.x = iso.x;
+    player.y = iso.y;
   });
 
-  it('correctly maps 2.5D grid coordinates to screen pixel positions and back', () => {
+  it('correctly maps 2.5D grid coordinates to screen pixel positions and back with 72x36 ratio', () => {
     const gx = 10;
     const gy = 12;
     const screen = IsometricGrid.gridToScreen(gx, gy, 0);
 
-    expect(screen.x).toBe((10 - 12) * 32); // -64
-    expect(screen.y).toBe((10 + 12) * 16); // 352
+    expect(screen.x).toBe((10 - 12) * (IsometricGrid.TILE_WIDTH / 2)); // -72
+    expect(screen.y).toBe((10 + 12) * (IsometricGrid.TILE_HEIGHT / 2)); // 396
 
     const back = IsometricGrid.screenToGrid(screen.x, screen.y);
     expect(back.gx).toBe(gx);
@@ -75,29 +80,29 @@ describe('2.5D Isometric Engine & Turn-Based Roguelike System (The Wild Darkness
     expect(player.vitals.hunger).toBeLessThan(50);
     expect(player.vitals.thirst).toBeLessThan(50);
 
-    // Rest Step (⏳ Wait turn)
+    // Rest Step (⏳ Wait turn / Guard)
     const prevStamina = player.vitals.stamina;
     turnSystem.advanceTurn(player, [], null, [], REGIONS_DATA['beach'], grid, true);
 
     expect(turnSystem.turnCount).toBe(3);
     expect(player.vitals.stamina).toBeGreaterThan(prevStamina);
+    expect(player.isGuarding).toBe(true);
   });
 
-  it('synchronously moves alert enemies towards the player and attacks when adjacent', () => {
+  it('synchronously moves alert enemies towards player strictly 1 tile at a time and attacks when adjacent', () => {
     grid.generateForRegion(REGIONS_DATA['beach']);
-    player.x = 12 * IsometricGrid.TILE_WIDTH;
-    player.y = 12 * IsometricGrid.TILE_HEIGHT;
     player.vitals.health = 80;
 
     // Enemy placed 2 tiles away at (12, 14)
-    const wolf = new Enemy('stalking_wolf', 12 * IsometricGrid.TILE_WIDTH, 14 * IsometricGrid.TILE_HEIGHT);
+    const wolfIso = IsometricGrid.gridToScreen(12, 14);
+    const wolf = new Enemy('stalking_wolf', wolfIso.x, wolfIso.y, 12, 14);
     const enemies = [wolf];
 
-    // Turn 1: Wolf moves 1 step closer to (12, 13)
+    // Turn 1: Wolf moves 1 tile closer to (12, 13)
     turnSystem.advanceTurn(player, enemies, null, [], REGIONS_DATA['beach'], grid, false);
-    const wolfGy = Math.round(wolf.y / IsometricGrid.TILE_HEIGHT);
-    expect(wolfGy).toBe(13);
-    expect(player.vitals.health).toBe(80); // not adjacent yet
+    expect(wolf.gx).toBe(12);
+    expect(wolf.gy).toBe(13);
+    expect(player.vitals.health).toBe(80); // not adjacent yet, no attack
 
     // Turn 2: Wolf is adjacent (12, 13) to player (12, 12), so it attacks!
     turnSystem.advanceTurn(player, enemies, null, [], REGIONS_DATA['beach'], grid, false);
@@ -105,13 +110,70 @@ describe('2.5D Isometric Engine & Turn-Based Roguelike System (The Wild Darkness
     expect(turnSystem.floatingTexts.length).toBeGreaterThan(0);
   });
 
+  it('applies 50% damage reduction when player is in Guard stance', () => {
+    grid.generateForRegion(REGIONS_DATA['beach']);
+    player.vitals.health = 100;
+    player.isGuarding = true;
+
+    // Enemy placed adjacent at (12, 13)
+    const wolfIso = IsometricGrid.gridToScreen(12, 13);
+    const wolf = new Enemy('stalking_wolf', wolfIso.x, wolfIso.y, 12, 13);
+    const baseDamage = wolf.damage;
+
+    // Advance turn while resting/guarding
+    turnSystem.advanceTurn(player, [wolf], null, [], REGIONS_DATA['beach'], grid, true);
+
+    const damageTaken = 100 - player.vitals.health;
+    expect(damageTaken).toBe(Math.round(baseDamage * 0.5));
+  });
+
+  it('prevents enemies from stacking on the same tile (strictly 1 entity per tile)', () => {
+    grid.generateForRegion(REGIONS_DATA['beach']);
+
+    // Two wolves trying to approach player at (12, 12)
+    const wolf1Iso = IsometricGrid.gridToScreen(12, 13);
+    const wolf1 = new Enemy('stalking_wolf', wolf1Iso.x, wolf1Iso.y, 12, 13);
+
+    const wolf2Iso = IsometricGrid.gridToScreen(12, 14);
+    const wolf2 = new Enemy('stalking_wolf', wolf2Iso.x, wolf2Iso.y, 12, 14);
+
+    const enemies = [wolf1, wolf2];
+    turnSystem.advanceTurn(player, enemies, null, [], REGIONS_DATA['beach'], grid, false);
+
+    // Wolf 1 was at (12, 13) adjacent to player and attacked.
+    // Wolf 2 was at (12, 14) and could not step into (12, 13) because wolf 1 occupies it!
+    expect(wolf1.gx !== wolf2.gx || wolf1.gy !== wolf2.gy).toBe(true);
+  });
+
+  it('freezes enemy actions during freeze status turns', () => {
+    grid.generateForRegion(REGIONS_DATA['beach']);
+    player.vitals.health = 100;
+
+    const wolfIso = IsometricGrid.gridToScreen(12, 13);
+    const wolf = new Enemy('stalking_wolf', wolfIso.x, wolfIso.y, 12, 13);
+    wolf.freezeTurns = 2;
+
+    // Turn 1: Wolf is frozen, does not attack
+    turnSystem.advanceTurn(player, [wolf], null, [], REGIONS_DATA['beach'], grid, false);
+    expect(wolf.freezeTurns).toBe(1);
+    expect(player.vitals.health).toBe(100); // No damage taken
+
+    // Turn 2: Still frozen for 1 turn
+    turnSystem.advanceTurn(player, [wolf], null, [], REGIONS_DATA['beach'], grid, false);
+    expect(wolf.freezeTurns).toBe(0);
+    expect(player.vitals.health).toBe(100);
+
+    // Turn 3: Freeze expired, wolf attacks!
+    turnSystem.advanceTurn(player, [wolf], null, [], REGIONS_DATA['beach'], grid, false);
+    expect(player.vitals.health).toBeLessThan(100);
+  });
+
   it('heats player when adjacent to lit campfire in cold biomes', () => {
     grid.generateForRegion(REGIONS_DATA['frost']);
-    player.x = 12 * IsometricGrid.TILE_WIDTH;
-    player.y = 12 * IsometricGrid.TILE_HEIGHT;
     player.vitals.bodyTemp = 30;
 
-    const fire = new WorldObject('campfire', 12 * IsometricGrid.TILE_WIDTH, 11 * IsometricGrid.TILE_HEIGHT);
+    const fireIso = IsometricGrid.gridToScreen(12, 11);
+    const fire = new WorldObject('campfire', fireIso.x, fireIso.y, undefined, 12, 11);
     fire.isLit = true;
 
     turnSystem.advanceTurn(player, [], null, [fire], REGIONS_DATA['frost'], grid, true);

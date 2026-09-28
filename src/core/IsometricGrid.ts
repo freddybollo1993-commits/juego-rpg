@@ -13,15 +13,16 @@ export interface IsoTile {
 }
 
 export class IsometricGrid {
-  public static readonly TILE_WIDTH = 64;
-  public static readonly TILE_HEIGHT = 32;
-  public static readonly TILE_DEPTH = 12; // 2.5D prism block height
+  public static readonly TILE_WIDTH = 72;
+  public static readonly TILE_HEIGHT = 36;
+  public static readonly TILE_DEPTH = 14; // 2.5D prism block height
 
   public cols: number = 24;
   public rows: number = 24;
   public tiles: IsoTile[][] = [];
   public hoveredTile: { gx: number; gy: number } | null = null;
   public targetTile: { gx: number; gy: number } | null = null;
+  public dangerTiles: { gx: number; gy: number; label: string }[] = [];
 
   constructor(cols: number = 24, rows: number = 24) {
     this.cols = cols;
@@ -37,12 +38,12 @@ export class IsometricGrid {
     return { x, y };
   }
 
-  /** Convert screen pixel coordinates to logical grid coordinates */
+  /** Convert screen pixel coordinates to logical grid coordinates with high precision */
   public static screenToGrid(screenX: number, screenY: number): { gx: number; gy: number } {
     const halfW = IsometricGrid.TILE_WIDTH / 2;
     const halfH = IsometricGrid.TILE_HEIGHT / 2;
-    const gx = Math.floor((screenX / halfW + screenY / halfH) / 2);
-    const gy = Math.floor((screenY / halfH - screenX / halfW) / 2);
+    const gx = Math.round((screenX / halfW + screenY / halfH) / 2);
+    const gy = Math.round((screenY / halfH - screenX / halfW) / 2);
     return { gx, gy };
   }
 
@@ -201,17 +202,40 @@ export class IsometricGrid {
         const isDim = tile.visibility === 1; // Explored but not in current sight
         this.drawTileSlab(ctx, px, py, halfW, halfH, depth, tile, region, isDim);
 
+        // Highlight Telegraphed Danger Tile (Turn-based enemy warning)
+        const isDanger = this.dangerTiles.find(d => d.gx === gx && d.gy === gy);
+        if (isDanger) {
+          const pulseAlpha = Math.sin(Date.now() * 0.008) * 0.25 + 0.6;
+          this.drawTileOutline(ctx, px, py, halfW, halfH, `rgba(239, 68, 68, ${pulseAlpha})`, 3);
+          ctx.fillStyle = `rgba(239, 68, 68, ${pulseAlpha * 0.35})`;
+          this.fillDiamond(ctx, px, py, halfW, halfH);
+          ctx.fillStyle = '#fee2e2';
+          ctx.font = 'bold 9px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`⚠️ ${isDanger.label}`, px, py + 3);
+        }
+
         // Highlight hovered tile
         if (this.hoveredTile && this.hoveredTile.gx === gx && this.hoveredTile.gy === gy) {
-          this.drawTileOutline(ctx, px, py, halfW, halfH, 'rgba(255, 215, 0, 0.7)', 2);
+          this.drawTileOutline(ctx, px, py, halfW, halfH, 'rgba(255, 215, 0, 0.8)', 2.5);
         }
 
         // Highlight selected target tile
         if (this.targetTile && this.targetTile.gx === gx && this.targetTile.gy === gy) {
-          this.drawTileOutline(ctx, px, py, halfW, halfH, 'rgba(0, 245, 212, 0.85)', 2.5);
+          this.drawTileOutline(ctx, px, py, halfW, halfH, 'rgba(0, 245, 212, 0.9)', 3);
         }
       }
     }
+  }
+
+  private fillDiamond(ctx: CanvasRenderingContext2D, px: number, py: number, halfW: number, halfH: number) {
+    ctx.beginPath();
+    ctx.moveTo(px, py - halfH);
+    ctx.lineTo(px + halfW, py);
+    ctx.lineTo(px, py + halfH);
+    ctx.lineTo(px - halfW, py);
+    ctx.closePath();
+    ctx.fill();
   }
 
   /** Draw an individual 2.5D Isometric Tile Block (Top Diamond + Left/Right Shaded Facets) */

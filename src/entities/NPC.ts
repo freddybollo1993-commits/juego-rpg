@@ -9,14 +9,18 @@ export class NPC {
   public title: string;
   public x: number;
   public y: number;
+  public gx: number = 0;
+  public gy: number = 0;
   public width: number = 32;
   public height: number = 48;
   public tribeData: TribeData;
 
-  constructor(tribeId: string, x: number, y: number) {
+  constructor(tribeId: string, x: number, y: number, gx: number = 0, gy: number = 0) {
     this.tribeId = tribeId;
     this.x = x;
     this.y = y;
+    this.gx = gx;
+    this.gy = gy;
     this.tribeData = TRIBES_DATA[tribeId];
     this.id = `npc_${tribeId}`;
     this.name = this.tribeData.leaderName;
@@ -35,10 +39,10 @@ export class NPC {
 
     ctx.save();
 
-    // Shadow
+    // 2.5D Ground Shadow (Anchored precisely to diamond tile center)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.beginPath();
-    ctx.ellipse(screenX, screenY + this.height / 2 - 2, 16, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(screenX, screenY + 2, 16, 7, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Tribe-specific colors and attire
@@ -68,39 +72,39 @@ export class NPC {
       iconSymbol = '💎';
     }
 
-    // Robe
+    // Robe - Anchored so base touches diamond center
     ctx.fillStyle = robeColor;
-    ctx.fillRect(screenX - 14, screenY - 18, 28, 30);
+    ctx.fillRect(screenX - 14, screenY - 38, 28, 38);
 
     // Trim
     ctx.fillStyle = trimColor;
-    ctx.fillRect(screenX - 14, screenY + 8, 28, 4);
+    ctx.fillRect(screenX - 14, screenY - 12, 28, 4);
 
     // Head
     ctx.fillStyle = '#f1c27d';
     ctx.beginPath();
-    ctx.arc(screenX, screenY - 26, 11, 0, Math.PI * 2);
+    ctx.arc(screenX, screenY - 46, 11, 0, Math.PI * 2);
     ctx.fill();
 
     // Staff or sacred relic in hand
     ctx.strokeStyle = '#b08968';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(screenX + 16, screenY + 12);
-    ctx.lineTo(screenX + 16, screenY - 32);
+    ctx.moveTo(screenX + 16, screenY - 8);
+    ctx.lineTo(screenX + 16, screenY - 52);
     ctx.stroke();
 
     // Staff Gem
     ctx.fillStyle = trimColor;
     ctx.beginPath();
-    ctx.arc(screenX + 16, screenY - 34, 5, 0, Math.PI * 2);
+    ctx.arc(screenX + 16, screenY - 54, 5, 0, Math.PI * 2);
     ctx.fill();
 
     // Speech Prompt Bubble when close
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 12px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`${iconSymbol} ${this.name}`, screenX, screenY - 45);
+    ctx.fillText(`${iconSymbol} ${this.name}`, screenX, screenY - 65);
 
     ctx.restore();
   }

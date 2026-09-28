@@ -21,6 +21,9 @@ export interface InventorySlot {
 export class Player {
   public x: number = 400;
   public y: number = 800;
+  public gx: number = 12;
+  public gy: number = 12;
+  public isGuarding: boolean = false;
   public vx: number = 0;
   public vy: number = 0;
   public width: number = 32;
@@ -631,46 +634,64 @@ export class Player {
       ctx.translate(-screenX, -(screenY - 6));
     }
 
-    // Shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    // 2.5D Ground Shadow (Anchored precisely to diamond tile center)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.beginPath();
-    ctx.ellipse(screenX, screenY + this.height / 2 - 2, 16, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(screenX, screenY + 2, 16, 7, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Body (Medieval Explorer Outfit)
+    // Body (Medieval Explorer Outfit) - Anchored so feet touch diamond center
     ctx.fillStyle = '#5c4033'; // Leather tunic
-    ctx.fillRect(screenX - 12, screenY - 18, 24, 28);
+    ctx.fillRect(screenX - 12, screenY - 38, 24, 28);
 
     // Belt & Pouch
     ctx.fillStyle = '#2b1d0c';
-    ctx.fillRect(screenX - 13, screenY - 2, 26, 4);
+    ctx.fillRect(screenX - 13, screenY - 22, 26, 4);
 
     // Legs
     ctx.fillStyle = '#3a2e2b';
-    ctx.fillRect(screenX - 9, screenY + 10, 7, 14);
-    ctx.fillRect(screenX + 2, screenY + 10, 7, 14);
+    ctx.fillRect(screenX - 9, screenY - 10, 7, 12);
+    ctx.fillRect(screenX + 2, screenY - 10, 7, 12);
 
     // Head
     ctx.fillStyle = '#e0ac69'; // Skin tone
     ctx.beginPath();
-    ctx.arc(screenX, screenY - 26, 10, 0, Math.PI * 2);
+    ctx.arc(screenX, screenY - 46, 10, 0, Math.PI * 2);
     ctx.fill();
 
     // Hair / Explorer Hood
     ctx.fillStyle = '#3e2723';
     ctx.beginPath();
-    ctx.arc(screenX, screenY - 29, 10, Math.PI, Math.PI * 2);
+    ctx.arc(screenX, screenY - 49, 10, Math.PI, Math.PI * 2);
     ctx.fill();
 
     // Eyes according to direction
     ctx.fillStyle = '#111';
     if (this.facing === 'down') {
-      ctx.fillRect(screenX - 4, screenY - 26, 2, 3);
-      ctx.fillRect(screenX + 2, screenY - 26, 2, 3);
+      ctx.fillRect(screenX - 4, screenY - 46, 2, 3);
+      ctx.fillRect(screenX + 2, screenY - 46, 2, 3);
     } else if (this.facing === 'left') {
-      ctx.fillRect(screenX - 8, screenY - 26, 2, 3);
+      ctx.fillRect(screenX - 8, screenY - 46, 2, 3);
     } else if (this.facing === 'right') {
-      ctx.fillRect(screenX + 6, screenY - 26, 2, 3);
+      ctx.fillRect(screenX + 6, screenY - 46, 2, 3);
+    }
+
+    // Guard Stance Energy Shield (Turn-based defense feedback)
+    if (this.isGuarding) {
+      ctx.save();
+      const pulse = Math.sin(Date.now() * 0.01) * 2;
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.9)';
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.22)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(screenX, screenY - 24, 28 + pulse, -Math.PI * 0.7, Math.PI * 0.7);
+      ctx.stroke();
+      ctx.fill();
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillStyle = '#38bdf8';
+      ctx.textAlign = 'center';
+      ctx.fillText('🛡️ Guardia', screenX, screenY - 58);
+      ctx.restore();
     }
 
     // Weapon / Attack swing animation
@@ -685,13 +706,13 @@ export class Player {
       else if (this.facing === 'up') angle = -Math.PI / 2;
       else if (this.facing === 'down') angle = Math.PI / 2;
 
-      ctx.arc(screenX, screenY - 6, 34, angle - 0.7, angle + 0.7);
+      ctx.arc(screenX, screenY - 26, 34, angle - 0.7, angle + 0.7);
       ctx.stroke();
 
       if (isBurning) {
         ctx.fillStyle = '#ffbe0b';
         ctx.beginPath();
-        ctx.arc(screenX + Math.cos(angle) * 32, screenY - 6 + Math.sin(angle) * 32, 6, 0, Math.PI * 2);
+        ctx.arc(screenX + Math.cos(angle) * 32, screenY - 26 + Math.sin(angle) * 32, 6, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -701,14 +722,14 @@ export class Player {
       ctx.strokeStyle = this.activeEphemeral.isSacrificeLocked ? 'rgba(218, 165, 32, 0.4)' : 'rgba(255, 30, 80, 0.6)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(screenX, screenY - 6, 26 + Math.sin(Date.now() * 0.008) * 3, 0, Math.PI * 2);
+      ctx.arc(screenX, screenY - 26, 26 + Math.sin(Date.now() * 0.008) * 3, 0, Math.PI * 2);
       ctx.stroke();
     }
 
     // Portable Torch in off-hand (Fase 3.2)
     if (this.isHoldingTorch) {
       const torchOffX = this.facing === 'left' ? screenX - 16 : screenX + 16;
-      const torchOffY = screenY - 8;
+      const torchOffY = screenY - 28;
 
       // Wooden handle
       ctx.fillStyle = '#6d4c41';

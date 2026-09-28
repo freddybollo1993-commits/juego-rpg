@@ -17,6 +17,8 @@ export class Enemy {
   public name: string;
   public x: number;
   public y: number;
+  public gx: number = 0;
+  public gy: number = 0;
   public width: number = 32;
   public height: number = 32;
   public health: number = 60;
@@ -28,10 +30,13 @@ export class Enemy {
   public attackCooldown: number = 0;
   public isFrozen: boolean = false;
   public freezeTimer: number = 0;
+  public freezeTurns: number = 0;
   public isBurning: boolean = false;
   public burnTimer: number = 0;
+  public burnTurns: number = 0;
   public isBlinded: boolean = false;
   public blindTimer: number = 0;
+  public stunTurns: number = 0;
 
   // Telegraphed Attack Mechanics
   public isTelegraphing: boolean = false;
@@ -45,11 +50,13 @@ export class Enemy {
   public isElite: boolean = false;
   public eliteModifier: 'none' | 'armored' | 'electrified' | 'frost_aura' = 'none';
 
-  constructor(type: EnemyType, x: number, y: number) {
+  constructor(type: EnemyType, x: number, y: number, gx: number = 0, gy: number = 0) {
     this.id = `enemy_${Date.now()}_${Math.random()}`;
     this.type = type;
     this.x = x;
     this.y = y;
+    this.gx = gx;
+    this.gy = gy;
 
     switch (type) {
       case 'frost_beast':
@@ -297,10 +304,10 @@ export class Enemy {
 
     ctx.save();
 
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    // 2.5D Ground Shadow (Anchored to diamond tile center)
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
-    ctx.ellipse(screenX, screenY + 12, 14, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(screenX, screenY + 4, 15, 6, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Draw enemy by type
