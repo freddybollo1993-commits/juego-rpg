@@ -61,16 +61,141 @@ canvas#game-canvas {
   touch-action: none;
 }
 
-/* Floating Top Controls */
-.top-controls {
+/* ═══════════════════════════════════════════════════════════════
+   Settings FAB — único botón de configuración visible en pantalla
+   ═══════════════════════════════════════════════════════════════ */
+.settings-fab {
   position: absolute;
-  top: 10px;
-  right: 12px;
+  top: 14px;
+  right: 14px;
+  z-index: 60;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.92);
+  border: 2px solid var(--border-gold);
+  color: #f8fafc;
+  font-size: 22px;
   display: flex;
-  gap: 8px;
-  z-index: 50;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.7), 0 0 8px rgba(212, 175, 55, 0.3);
+  backdrop-filter: blur(6px);
+  touch-action: manipulation;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
+.settings-fab:hover,
+.settings-fab:active {
+  background: rgba(212, 175, 55, 0.3);
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
+  transform: scale(1.08) rotate(30deg);
+}
+
+.settings-fab.is-open {
+  background: rgba(212, 175, 55, 0.35);
+  border-color: #ffd700;
+  box-shadow: 0 0 24px rgba(212, 175, 55, 0.8);
+  transform: rotate(90deg);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Settings Panel — panel desplegable con todas las opciones
+   ═══════════════════════════════════════════════════════════════ */
+.settings-panel {
+  position: absolute;
+  top: 70px;
+  right: 14px;
+  z-index: 59;
+  width: 272px;
+  background: rgba(9, 15, 32, 0.97);
+  border: 1.5px solid var(--border-gold);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8), 0 0 16px rgba(212, 175, 55, 0.15);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  /* animation */
+  transform-origin: top right;
+  transform: scale(0.92);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
+              opacity   0.16s ease;
+}
+
+.settings-panel.is-open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.settings-panel-inner {
+  padding: 14px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--border-gold);
+  padding: 2px 2px 4px;
+}
+
+.settings-divider {
+  height: 1px;
+  background: rgba(212, 175, 55, 0.2);
+  margin: 4px 0 6px;
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 10px;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-btn:hover,
+.settings-btn:active {
+  background: rgba(212, 175, 55, 0.18);
+  border-color: var(--border-gold);
+  transform: scale(0.98);
+}
+
+.settings-btn-danger {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.settings-btn-danger:hover,
+.settings-btn-danger:active {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: var(--accent-red);
+  color: #fff;
+}
+
+/* Preserve legacy icon-btn class (used in some modal internal buttons) */
 .icon-btn {
   background: rgba(15, 23, 42, 0.85);
   border: 1px solid var(--border-gold);
@@ -92,7 +217,7 @@ canvas#game-canvas {
   transform: scale(1.05);
 }
 
-/* Dedicated Touch Control Zone for 2.5D Isometric Navigation (The Wild Darkness style) */
+
 .touch-controls-left {
   position: absolute;
   bottom: 24px;

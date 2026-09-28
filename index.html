@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>RPG Medieval de Supervivencia Móvil - Clanes & Terraformación</title>
+  <title>RPG Medieval de Supervivencia Móvil - Clanes &amp; Terraformación</title>
   <meta name="description" content="RPG Medieval de Supervivencia Móvil con sistema de adquisición de habilidades tribales, objetos especiales efímeros, mundo regional autónomo y combate contra la entidad extraterrestre.">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
   <link rel="manifest" href="/manifest.json">
@@ -15,13 +15,12 @@
   <div id="app-container">
     <canvas id="game-canvas"></canvas>
 
-    <!-- Dedicated Touch Zone with 2.5D Isometric D-Pad (Left Side of Screen) — 8 directions -->
+    <!-- ── D-Pad isométrico 8 direcciones (esquina inferior izquierda) ── -->
     <div id="touch-controls-left" class="touch-controls-left">
       <div class="iso-dpad" id="iso-dpad">
-        <!-- 3x3 grid — corners=diagonals, edges=axis moves, center=wait -->
-        <!-- TL=N(-1,-1)  TC=NW(-1,0)  TR=NE(0,-1)                       -->
-        <!-- ML=W(-1,+1)  MC=⏳wait    MR=E(+1,-1)                       -->
-        <!-- BL=SW(0,+1)  BC=SE(+1,0)  BR=S(+1,+1)                      -->
+        <!-- 3x3: TL=N(-1,-1) TC=NW(-1,0) TR=NE(0,-1)
+                  ML=W(-1,+1) MC=⏳       MR=E(+1,-1)
+                  BL=SW(0,+1) BC=SE(+1,0) BR=S(+1,+1) -->
         <button class="iso-btn iso-btn-n"    id="btn-iso-n"    title="Norte (-1,-1)">⬆</button>
         <button class="iso-btn iso-btn-nw"   id="btn-iso-nw"   title="Noroeste (-1,0)">↖</button>
         <button class="iso-btn iso-btn-ne"   id="btn-iso-ne"   title="Noreste (0,-1)">↗</button>
@@ -34,60 +33,38 @@
       </div>
     </div>
 
-    <!-- Top Status Bar Controls -->
-    <div class="top-controls">
-      <button class="icon-btn btn-world-map" id="btn-world-map" title="Cartografía 2.5D de los 7 Biomas">🗺️ Mapa 2.5D</button>
-      <button class="icon-btn btn-talents" id="btn-talents" title="Árbol de Talentos y Maestría Tribal">🧬 Talentos</button>
-      <button class="icon-btn btn-test-world" id="btn-test-world" title="Abrir Mundo de Prueba & Galería de Arte">🧪 Mundo de Prueba</button>
-      <button class="icon-btn" id="btn-reset-game" title="Reiniciar Partida y Limpiar Guardado">🔄 Reiniciar</button>
-      <button class="icon-btn" id="btn-toggle-frame" title="Alternar Vista Móvil / Pantalla Completa">📱 Móvil/PC</button>
-      <button class="icon-btn" id="btn-mute" title="Activar/Desactivar Sonido">🔊 Audio</button>
-    </div>
+    <!-- ── FAB único de configuración (esquina superior derecha) ── -->
+    <button class="settings-fab" id="btn-settings" title="Configuración y opciones">⚙️</button>
 
-    <!-- On-Screen Mobile Thumb Buttons (Right Side of Screen) -->
-    <div class="mobile-touch-bar">
-      <!-- Upper row: Utilities -->
-      <div class="touch-row">
-        <button class="touch-action-btn" id="btn-touch-inv" title="Inventario y Relicario">
-          <span>🎒</span>
-          <span class="label">Mochila</span>
-        </button>
-        <button class="touch-action-btn" id="btn-touch-codex" title="Códice Tribal">
-          <span>📖</span>
-          <span class="label">Códice</span>
-        </button>
-        <button class="touch-action-btn btn-radial" id="btn-touch-radial" title="Rueda Radial">
-          <span>☸️</span>
-          <span class="label">Radial</span>
-        </button>
-        <button class="touch-action-btn btn-bow" id="btn-touch-bow" title="Disparar Arco Tribal (Flechas de Sílex, Fuego y Escarcha)">
-          <span>🏹</span>
-          <span class="label">Arco</span>
-        </button>
-      </div>
+    <!-- ── Panel de configuración desplegable ── -->
+    <div class="settings-panel" id="settings-panel" aria-hidden="true">
+      <div class="settings-panel-inner">
 
-      <!-- Lower row: Combat & Actions -->
-      <div class="touch-row">
-        <button class="touch-action-btn btn-map" id="btn-touch-map" title="Cartografía 2.5D de los 7 Biomas">
-          <span>🗺️</span>
-          <span class="label">Mapa</span>
-        </button>
-        <button class="touch-action-btn btn-wait" id="btn-touch-wait" title="Esperar / Descansar Turno (Recupera Estamina)">
-          <span>⏳</span>
-          <span class="label">Descanso</span>
-        </button>
-        <button class="touch-action-btn btn-sacrifice" id="btn-touch-sacrifice" title="Detonar Sacrificio">
-          <span>💥</span>
-          <span class="label">Sacrificio</span>
-        </button>
-        <button class="touch-action-btn btn-attack" id="btn-touch-attack" title="Atacar Enemigo Adyacente / Recolectar">
-          <span>⚔️</span>
-          <span class="label">Golpe</span>
-        </button>
+        <div class="settings-section-title">🖥️ Pantalla</div>
+        <div class="settings-row">
+          <button class="settings-btn" id="btn-toggle-frame">📱 Pantalla completa / Normal</button>
+          <button class="settings-btn" id="btn-toggle-dpad">🕹️ Mostrar / Ocultar controles</button>
+          <button class="settings-btn" id="btn-mute">🔊 Audio: On</button>
+        </div>
+
+        <div class="settings-divider"></div>
+        <div class="settings-section-title">🗺️ Navegación</div>
+        <div class="settings-row">
+          <button class="settings-btn" id="btn-world-map">🗺️ Mapa del Mundo</button>
+          <button class="settings-btn" id="btn-talents">🧬 Árbol de Talentos</button>
+        </div>
+
+        <div class="settings-divider"></div>
+        <div class="settings-section-title">🧪 Sandbox de Prueba</div>
+        <div class="settings-row">
+          <button class="settings-btn" id="btn-test-world">🧪 Abrir Mundo de Prueba</button>
+          <button class="settings-btn settings-btn-danger" id="btn-reset-game">🔄 Reiniciar Partida</button>
+        </div>
+
       </div>
     </div>
+
   </div>
-
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

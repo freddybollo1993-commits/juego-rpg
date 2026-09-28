@@ -1,4 +1,4 @@
-// main.ts - Game Entry Point, Responsive Viewport Setup & Mobile Controls Binding
+// main.ts - Game Entry Point, Responsive Viewport Setup & Controls Binding
 
 import './style.css';
 import { Game } from './core/Game';
@@ -8,29 +8,28 @@ import { SaveSystem } from './systems/SaveSystem';
 
 function initApp() {
   const container = document.getElementById('app-container') as HTMLElement;
-  const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
+  const canvas    = document.getElementById('game-canvas')    as HTMLCanvasElement;
 
   function resizeCanvas() {
-    canvas.width = container.clientWidth;
+    canvas.width  = container.clientWidth;
     canvas.height = container.clientHeight;
   }
-
   window.addEventListener('resize', resizeCanvas);
-  window.addEventListener('orientationchange', () => {
-    setTimeout(resizeCanvas, 200);
-  });
+  window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 200));
   resizeCanvas();
 
   // Instantiate and run game
   const game = new Game(canvas);
   game.start();
 
-  // Register PWA Service Worker for mobile play
+  // Register PWA Service Worker
   if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 
-  // Audio unmute on first gesture
+  // ──────────────────────────────────────────────────────────────────────────
+  // Audio: unmute on first gesture
+  // ──────────────────────────────────────────────────────────────────────────
   const unmuteSound = () => {
     soundManager.init();
     window.removeEventListener('click', unmuteSound);
@@ -39,17 +38,27 @@ function initApp() {
   window.addEventListener('click', unmuteSound);
   window.addEventListener('touchstart', unmuteSound);
 
-  // Mute button
-  const muteBtn = document.getElementById('btn-mute');
-  muteBtn?.addEventListener('click', () => {
-    soundManager.init();
-    const isMuted = soundManager.toggleMute();
-    muteBtn.innerText = isMuted ? '🔇 Mute' : '🔊 Audio';
-  });
+  // ──────────────────────────────────────────────────────────────────────────
+  // Settings FAB + Panel toggle
+  // ──────────────────────────────────────────────────────────────────────────
+  const settingsBtn   = document.getElementById('btn-settings')   as HTMLButtonElement;
+  const settingsPanel = document.getElementById('settings-panel') as HTMLDivElement;
+  const dpadContainer = document.getElementById('touch-controls-left') as HTMLDivElement;
 
-  // Mobile Frame / Fullscreen Toggle
-  const frameBtn = document.getElementById('btn-toggle-frame');
-  frameBtn?.addEventListener('click', () => {
+  let panelOpen = false;
+  const openPanel  = () => { panelOpen = true;  settingsBtn.classList.add('is-open');    settingsPanel.classList.add('is-open');    settingsPanel.removeAttribute('aria-hidden'); };
+  const closePanel = () => { panelOpen = false; settingsBtn.classList.remove('is-open'); settingsPanel.classList.remove('is-open'); settingsPanel.setAttribute('aria-hidden', 'true'); };
+  const togglePanel = () => panelOpen ? closePanel() : openPanel();
+
+  settingsBtn.addEventListener('click', (e) => { e.stopPropagation(); togglePanel(); });
+  settingsBtn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); togglePanel(); });
+
+  // Close panel when clicking outside of it
+  document.addEventListener('click',      (e) => { if (panelOpen && !settingsPanel.contains(e.target as Node)) closePanel(); });
+  document.addEventListener('touchstart', (e) => { if (panelOpen && !settingsPanel.contains(e.target as Node) && e.target !== settingsBtn) closePanel(); });
+
+  // ── Panel: Pantalla completa / Normal ──
+  document.getElementById('btn-toggle-frame')?.addEventListener('click', () => {
     container.classList.toggle('mobile-frame');
     if (!container.classList.contains('mobile-frame') && document.fullscreenEnabled && !document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -57,57 +66,76 @@ function initApp() {
       document.exitFullscreen().catch(() => {});
     }
     resizeCanvas();
+    closePanel();
   });
 
-  // Talent Tree Modal Button (Fase 3.1)
-  const talentBtn = document.getElementById('btn-talents');
-  talentBtn?.addEventListener('click', () => {
+  // ── Panel: Mostrar / Ocultar controles en pantalla ──
+  let dpadVisible = true;
+  document.getElementById('btn-toggle-dpad')?.addEventListener('click', () => {
+    dpadVisible = !dpadVisible;
+    dpadContainer.style.display = dpadVisible ? '' : 'none';
+    const btn = document.getElementById('btn-toggle-dpad')!;
+    btn.textContent = dpadVisible ? '🕹️ Ocultar controles' : '🕹️ Mostrar controles';
+    closePanel();
+  });
+
+  // ── Panel: Audio On/Off ──
+  const muteBtn = document.getElementById('btn-mute');
+  muteBtn?.addEventListener('click', () => {
+    soundManager.init();
+    const isMuted = soundManager.toggleMute();
+    muteBtn.textContent = isMuted ? '🔇 Audio: Off' : '🔊 Audio: On';
+    closePanel();
+  });
+
+  // ── Panel: Mapa del Mundo ──
+  document.getElementById('btn-world-map')?.addEventListener('click', () => {
+    game.openWorldMap();
+    closePanel();
+  });
+
+  // ── Panel: Árbol de Talentos ──
+  document.getElementById('btn-talents')?.addEventListener('click', () => {
     game.openTalents();
+    closePanel();
   });
 
-  // Test World Sandbox Button
-  const testWorldBtn = document.getElementById('btn-test-world');
-  testWorldBtn?.addEventListener('click', () => {
+  // ── Panel: Mundo de Prueba ──
+  document.getElementById('btn-test-world')?.addEventListener('click', () => {
     game.openTestWorld();
+    closePanel();
   });
 
-  // Reset Game & Clear LocalStorage Button
-  const resetBtn = document.getElementById('btn-reset-game');
-  resetBtn?.addEventListener('click', () => {
+  // ── Panel: Reiniciar Partida ──
+  document.getElementById('btn-reset-game')?.addEventListener('click', () => {
     SaveSystem.clearSave();
     window.location.reload();
   });
 
-  // Helper for touch/mouse events binding
+  // ──────────────────────────────────────────────────────────────────────────
+  // Helper para bind de botones táctiles / click (evita doble-disparo)
+  // ──────────────────────────────────────────────────────────────────────────
   const bindTouchOrClick = (elementId: string, callback: () => void) => {
     const btn = document.getElementById(elementId);
     if (!btn) return;
     let touchHandled = false;
-
     btn.addEventListener('touchstart', (e) => {
       e.preventDefault();
       e.stopPropagation();
       touchHandled = true;
       callback();
     });
-
-    btn.addEventListener('click', (e) => {
-      if (touchHandled) {
-        touchHandled = false;
-        return;
-      }
+    btn.addEventListener('click', () => {
+      if (touchHandled) { touchHandled = false; return; }
       callback();
     });
   };
 
-  // Bind 2.5D World Map Buttons
-  const openWorldMap = () => game.openWorldMap();
-  bindTouchOrClick('btn-world-map', openWorldMap);
-  bindTouchOrClick('btn-touch-map', openWorldMap);
-
-  // Bind 2.5D Isometric D-Pad — 8 directions (The Wild Darkness style)
-  // Axis moves: NW(-1,0), NE(0,-1), SE(+1,0), SW(0,+1)
-  // Diagonal moves: N(-1,-1), E(+1,-1), S(+1,+1), W(-1,+1)
+  // ──────────────────────────────────────────────────────────────────────────
+  // D-Pad isométrico 8 direcciones
+  // Eje:       NW(-1,0) NE(0,-1) SE(+1,0) SW(0,+1)
+  // Diagonal:  N(-1,-1) E(+1,-1) S(+1,+1) W(-1,+1)
+  // ──────────────────────────────────────────────────────────────────────────
   bindTouchOrClick('btn-iso-nw',   () => game.stepPlayer(-1,  0));
   bindTouchOrClick('btn-iso-ne',   () => game.stepPlayer( 0, -1));
   bindTouchOrClick('btn-iso-se',   () => game.stepPlayer( 1,  0));
@@ -118,70 +146,55 @@ function initApp() {
   bindTouchOrClick('btn-iso-e',    () => game.stepPlayer( 1, -1));
   bindTouchOrClick('btn-iso-wait', () => game.waitPlayer());
 
-  // Bind Touch Bar Action Buttons
-  bindTouchOrClick('btn-touch-wait', () => game.waitPlayer());
-  bindTouchOrClick('btn-touch-attack', () => game.attackNearest());
-  bindTouchOrClick('btn-touch-radial', () => game.openRadialMenu());
-  bindTouchOrClick('btn-touch-codex', () => game.openCodex());
-  bindTouchOrClick('btn-touch-inv', () => game.openInventory());
-  bindTouchOrClick('btn-touch-sacrifice', () => game.triggerSacrificeAction());
-  bindTouchOrClick('btn-touch-bow', () => game.triggerBowAction());
-
-  // Direct Click / Tap on Canvas to Interact or Move to Isometric Tile
-  const handleCanvasInteraction = (clientX: number, clientY: number) => {
-    const rect = canvas.getBoundingClientRect();
-    const clickX = clientX - rect.left;
-    const clickY = clientY - rect.top;
-    const worldX = clickX + game.cameraX;
-    const worldY = clickY + game.cameraY;
+  // ──────────────────────────────────────────────────────────────────────────
+  // Click / Tap en canvas → mover / interactuar con casilla
+  // ──────────────────────────────────────────────────────────────────────────
+  canvas.addEventListener('click', (e) => {
+    const rect  = canvas.getBoundingClientRect();
+    const worldX = (e.clientX - rect.left)  + game.cameraX;
+    const worldY = (e.clientY - rect.top)   + game.cameraY;
     const gridPos = (game.grid.constructor as any).screenToGrid(worldX, worldY);
     game.grid.targetTile = { gx: gridPos.gx, gy: gridPos.gy };
     game.interactTile(gridPos.gx, gridPos.gy);
-  };
-
-  canvas.addEventListener('click', (e) => {
-    handleCanvasInteraction(e.clientX, e.clientY);
   });
 
-  // Mouse hover tile highlight
+  // Mouse hover → resaltar casilla bajo cursor
   canvas.addEventListener('mousemove', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const hoverX = e.clientX - rect.left;
-    const hoverY = e.clientY - rect.top;
-    const worldX = hoverX + game.cameraX;
-    const worldY = hoverY + game.cameraY;
+    const rect  = canvas.getBoundingClientRect();
+    const worldX = (e.clientX - rect.left)  + game.cameraX;
+    const worldY = (e.clientY - rect.top)   + game.cameraY;
     game.grid.hoveredTile = (game.grid.constructor as any).screenToGrid(worldX, worldY);
   });
 
-  // Desktop Keyboard Controls for Isometric Turn Navigation — 8 directions
-  // Axis:      W/↑=NE,  S/↓=SW,  D/→=SE,  A/←=NW
-  // Diagonals: Q=N(-1,-1),  E=S... wait – keep Q=NW-diagonal? Let's map:
-  //   Q=N(-1,-1),  E=E(+1,-1),  Z=W(-1,+1),  C=S(+1,+1)
+  // ──────────────────────────────────────────────────────────────────────────
+  // Teclado — 8 direcciones isométricas
+  //   WASD / flechas = 4 ejes principales
+  //   Q E Z C        = 4 diagonales
+  //   Espacio / .    = esperar turno
+  // ──────────────────────────────────────────────────────────────────────────
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    // Close settings panel with Escape
+    if (e.key === 'Escape') { closePanel(); return; }
 
     switch (e.key.toLowerCase()) {
-      // Axis moves
       case 'w': case 'arrowup':    game.stepPlayer( 0, -1); break; // NE
       case 's': case 'arrowdown':  game.stepPlayer( 0,  1); break; // SW
       case 'd': case 'arrowright': game.stepPlayer( 1,  0); break; // SE
       case 'a': case 'arrowleft':  game.stepPlayer(-1,  0); break; // NW
-      // Diagonal moves (numpad-style: Q=NW-diag, E=NE-diag, Z=SW-diag, C=SE-diag)
-      case 'q': game.stepPlayer(-1, -1); break; // N (iso NW-diagonal)
-      case 'e': game.stepPlayer( 1, -1); break; // E (iso NE-diagonal)
-      case 'z': game.stepPlayer(-1,  1); break; // W (iso SW-diagonal)
-      case 'c': game.stepPlayer( 1,  1); break; // S (iso SE-diagonal)
-      // Wait / Rest
+      case 'q': game.stepPlayer(-1, -1); break; // N diagonal
+      case 'e': game.stepPlayer( 1, -1); break; // E diagonal
+      case 'z': game.stepPlayer(-1,  1); break; // W diagonal
+      case 'c': game.stepPlayer( 1,  1); break; // S diagonal
       case ' ':
       case '.':
         e.preventDefault();
         game.waitPlayer();
         break;
-      // Other actions
-      case 'b': game.triggerBowAction(); break;
-      case 'f': game.attackNearest(); break;
-      case 'i': game.openInventory(); break;
-      case 'm': game.openWorldMap(); break;
+      case 'b': game.triggerBowAction();       break;
+      case 'f': game.attackNearest();          break;
+      case 'i': game.openInventory();          break;
+      case 'm': game.openWorldMap();           break;
       case 'x': game.triggerSacrificeAction(); break;
     }
   });
