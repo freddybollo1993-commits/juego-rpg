@@ -22,20 +22,26 @@ export interface TileAtlasDef {
   terrains: Record<string, TileAtlasTerrain>;
 }
 
-export const TILE_ATLAS_MANIFEST: Record<string, TileAtlasDef> = {
-  beach: {
-    image: '/tiles/beach.png',
+/** Build a sheet definition: `terrains` are listed top-to-bottom in the PNG, 3 variants each. */
+function sheet(biome: string, terrains: string[], variants: number = 3): TileAtlasDef {
+  return {
+    image: `/tiles/${biome}.png`,
     cellW: 72,
     cellH: 50,
     anchorY: 18,
-    terrains: {
-      dry_sand:        { row: 0, variants: 3 },
-      wet_sand:        { row: 1, variants: 3 },
-      coastal_pebbles: { row: 2, variants: 3 },
-      deep_water:      { row: 3, variants: 3 },
-      rock_cliff:      { row: 4, variants: 3 }
-    }
-  }
+    terrains: Object.fromEntries(terrains.map((name, row) => [name, { row, variants }]))
+  };
+}
+
+// Keys are RegionData.biomeType. Row order must match tools/generate-placeholder-tiles.mjs
+export const TILE_ATLAS_MANIFEST: Record<string, TileAtlasDef> = {
+  beach:      sheet('beach',      ['dry_sand', 'wet_sand', 'coastal_pebbles', 'deep_water', 'rock_cliff']),
+  frost:      sheet('frost',      ['packed_snow', 'glacial_ice', 'frost_rock', 'boundary_cliff']),
+  forest:     sheet('forest',     ['pine_humus', 'ancient_moss', 'root_cluster', 'boundary_cliff']),
+  swamp:      sheet('swamp',      ['mud_moss', 'toxic_slime', 'deep_mire', 'boundary_cliff']),
+  canyon:     sheet('canyon',     ['red_sandstone', 'magma_fissure', 'basalt_gravel', 'boundary_cliff']),
+  caverns:    sheet('caverns',    ['dark_slate', 'crystal_cluster', 'abyssal_chasm', 'boundary_cliff']),
+  alien_core: sheet('alien_core', ['precursor_alloy', 'plasma_circuit', 'levitation_ring'])
 };
 
 export class TileAtlas {
