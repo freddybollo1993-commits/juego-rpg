@@ -24,6 +24,8 @@ import { IsometricGrid } from './IsometricGrid';
 import { TurnSystem } from './TurnSystem';
 import { assetManager } from './AssetManager';
 import { tileAtlas } from './TileAtlas';
+import { propAtlas } from './PropAtlas';
+import { DecorLayer } from './DecorLayer';
 import { soundManager } from '../audio/SoundManager';
 import { questSystem } from '../systems/QuestSystem';
 import { Arrow } from '../entities/Arrow';
@@ -75,6 +77,7 @@ export class Game {
   public enemies: Enemy[] = [];
   public worldObjects: WorldObject[] = [];
   public arrows: Arrow[] = [];
+  public decor: DecorLayer = new DecorLayer(); // purely visual scenery props
   public boss: Boss | null = null;
   public bossDefeated: boolean = false;
 
@@ -115,6 +118,7 @@ export class Game {
     // Preload concept art assets
     assetManager.preloadAll();
     tileAtlas.preloadAll();
+    propAtlas.preloadAll();
 
     // Default start region: Tutorial Beach (GDD Sec. 10.4)
     this.currentRegion = REGIONS_DATA['beach'];
@@ -356,6 +360,13 @@ export class Game {
       (cp2 as any).gx = 12;
       (cp2 as any).gy = 2;
     }
+
+    // Scenery props: visual only, kept away from the player start, chokepoints and gameplay tiles
+    const keepClear = [{ gx: this.playerGx, gy: this.playerGy }, { gx: 12, gy: 12 }];
+    for (const cp of reg.chokepoints) {
+      if ((cp as any).gx !== undefined) keepClear.push({ gx: (cp as any).gx, gy: (cp as any).gy });
+    }
+    this.decor.generate(this.grid, reg, occupiedTiles, keepClear);
 
     // Initial Fog of War calculation
     const sight = this.player.isHoldingTorch ? 7 : 5;
@@ -1214,6 +1225,11 @@ export class Game {
         }
       }
     }
+
+    this.decor.collectRenderables(
+      this.ctx, this.grid, this.currentRegion.biomeType,
+      { minX, maxX, minY, maxY }, this.cameraX, this.cameraY, renderables
+    );
 
     for (const npc of this.npcs) {
       if (npc.x >= minX && npc.x <= maxX && npc.y >= minY && npc.y <= maxY) {
