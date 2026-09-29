@@ -35,6 +35,38 @@ No hay que calcular el ángulo a mano cada vez: la cámara ya está fija y verif
 8. Repite para `idle`, `walk`, `attack`, `hit`, `death` según la animación que
    necesites, moviendo o posando el modelo entre renders (la cámara nunca se mueve).
 
+## Ejemplo: Lobo Alfa Acechante
+
+[`examples/lobo_alfa_acechante.blend`](examples/lobo_alfa_acechante.blend) es un modelo de
+prueba (formas simples, sin detalle final) que muestra el flujo completo funcionando:
+modelar dentro del rig, renderizar con `Cam_Common` y exportar con transparencia real.
+
+- [`examples/lobo_alfa_acechante_reference.png`](examples/lobo_alfa_acechante_reference.png) — render de referencia (recortado al contenido).
+- [`examples/lobo_alfa_acechante_64x80.png`](examples/lobo_alfa_acechante_64x80.png) — tamaño real de celda del juego (común).
+- [`examples/build_wolf_demo.py`](examples/build_wolf_demo.py) — script que genera el modelo y ambos renders (`blender --background creature_render_rig.blend --python examples/build_wolf_demo.py`).
+
+Lecciones (ya corregidas en el script, documentadas para el próximo modelo):
+- `bpy.ops.mesh.primitive_cube_add(size=1)` deja el cubo con medio-extensión 0.5;
+  si luego escalas el objeto por tus medidas pensadas como medio-extensión, el
+  resultado sale a la mitad. Usa `size=2` para que `object.scale` sea directamente
+  la medio-extensión deseada.
+- Nunca coloques dos piezas conectadas (pata-torso, cola-torso, cuello-cabeza)
+  calculando el ángulo a mano — es la fuente más común de "miembros flotando
+  desconectados". Define los dos puntos exactos donde debe empezar y terminar
+  cada pieza y deriva el cilindro entre ellos (ver `cyl_between` /
+  `cone_between` en el script).
+- Una esfera (ojo, nariz) posicionada muy adentro de un volumen sólido (cabeza)
+  queda completamente enterrada e invisible. Debe quedar centrada justo en la
+  superficie exterior, no en el centro del volumen.
+
+## Utilidad: recortar transparencia
+
+[`crop_transparent.mjs`](crop_transparent.mjs) recorta un PNG con canal alfa a su
+contenido real (más un margen), sin dependencias externas:
+```
+node crop_transparent.mjs entrada.png salida.png [margen_px]
+```
+
 ## Notas técnicas
 
 - `GroundReference_NOT_RENDERED` y `TileFootprintReference_NOT_RENDERED` son solo
