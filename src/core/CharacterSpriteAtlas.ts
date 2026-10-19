@@ -67,6 +67,76 @@ export class CharacterSpriteAtlas {
 
     // Death (6 frames)
     this.register('player_death_down', `${base}/Death_Base/Death_Down-Sheet.png`, 6, 0.14);
+
+    // Mobs: Demons, Undead & Dragons
+    this.preloadCreatures();
+  }
+
+  private registerCreature(key: string, path: string, frames: number = 4, frameW: number = 16, frameH: number = 16, duration: number = 0.16) {
+    if (typeof Image === 'undefined') return;
+    const img = new Image();
+    const anim: SpriteAnimation = {
+      image: img,
+      frames,
+      frameWidth: frameW,
+      frameHeight: frameH,
+      frameDuration: duration,
+      loaded: false
+    };
+    img.onload = () => { anim.loaded = true; };
+    img.src = path;
+    this.animations.set(key, anim);
+  }
+
+  private preloadCreatures() {
+    const dem = '/pixel_crawler/creatures/demons/Basic Demon Animations';
+    const und = '/pixel_crawler/creatures/undead/Basic Undead Animations';
+    const dra = '/pixel_crawler/creatures/dragons/Basic Dragon Animations';
+
+    // Map each regional enemy type to a high quality pixel crawler creature
+    this.registerCreature('mob_stalking_wolf', `${dem}/crimson imp/CrimsonImp.png`, 4, 16, 16);
+    this.registerCreature('mob_frost_beast', `${und}/Brittle Archer/BrittleArcher.png`, 4, 16, 16);
+    this.registerCreature('mob_swamp_horror', `${und}/Toxic Hound/ToxicHound.png`, 4, 16, 16);
+    this.registerCreature('mob_volcanic_scorpion', `${dem}/pit balor/PitBalor.png`, 4, 16, 16);
+    this.registerCreature('mob_crystal_stalker', `${und}/Grave Revenant/GraveRevenant.png`, 4, 16, 16);
+    this.registerCreature('mob_alien_drone', `${dem}/floating eye/FloatingEye.png`, 4, 16, 16);
+    this.registerCreature('mob_precursor_golem', `${dra}/Young Red Dragon/YoungRedDragon.png`, 4, 16, 16);
+  }
+
+  /**
+   * Draw creature sprite scaled to match the game's world proportions
+   */
+  public drawCreature(
+    ctx: CanvasRenderingContext2D,
+    enemyType: string,
+    animTimer: number,
+    px: number,
+    py: number,
+    scale: number = 2.4
+  ): boolean {
+    const key = `mob_${enemyType}`;
+    const anim = this.animations.get(key);
+    if (!anim || !anim.loaded) return false;
+
+    const totalAnimTime = anim.frames * anim.frameDuration;
+    const currentFrame = Math.floor((animTimer % totalAnimTime) / anim.frameDuration) % anim.frames;
+
+    const srcX = currentFrame * anim.frameWidth;
+    const srcY = 0;
+    const destW = anim.frameWidth * scale;
+    const destH = anim.frameHeight * scale;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+      anim.image,
+      srcX, srcY, anim.frameWidth, anim.frameHeight,
+      Math.round(px - destW / 2),
+      Math.round(py - destH + 4),
+      destW, destH
+    );
+    ctx.restore();
+    return true;
   }
 
   /**

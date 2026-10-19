@@ -3,6 +3,7 @@
 import { Player } from './Player';
 import { soundManager } from '../audio/SoundManager';
 import { dayNightCycle } from '../systems/DayNightCycle';
+import { characterSpriteAtlas } from '../core/CharacterSpriteAtlas';
 
 export type EnemyType = 'frost_beast' | 'stalking_wolf' | 'swamp_horror' | 'volcanic_scorpion' | 'crystal_stalker' | 'alien_drone' | 'precursor_golem';
 
@@ -37,6 +38,7 @@ export class Enemy {
   public isBlinded: boolean = false;
   public blindTimer: number = 0;
   public stunTurns: number = 0;
+  public animTimer: number = 0;
 
   // Telegraphed Attack Mechanics
   public isTelegraphing: boolean = false;
@@ -206,6 +208,8 @@ export class Enemy {
     const dy = player.y - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
+    this.animTimer += delta;
+
     if (dist <= detectionRadius && dist > 15) {
       // Chase player
       this.x += (dx / dist) * this.speed * delta;
@@ -310,79 +314,84 @@ export class Enemy {
     ctx.ellipse(screenX, screenY + 4, 15, 6, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw enemy by type
-    if (this.type === 'frost_beast') {
-      ctx.fillStyle = this.isFrozen ? '#bde0fe' : '#e0fbfc';
-      ctx.fillRect(screenX - 14, screenY - 14, 28, 26);
-      ctx.fillStyle = '#0077b6'; // Horns
-      ctx.fillRect(screenX - 12, screenY - 20, 6, 8);
-      ctx.fillRect(screenX + 6, screenY - 20, 6, 8);
-    } else if (this.type === 'stalking_wolf') {
-      ctx.fillStyle = '#4a4e69';
-      ctx.fillRect(screenX - 16, screenY - 10, 32, 20);
-      ctx.fillStyle = '#22223b'; // Snout
-      ctx.fillRect(screenX + 12, screenY - 6, 8, 8);
-      // Red eyes
-      ctx.fillStyle = '#e63946';
-      ctx.fillRect(screenX + 6, screenY - 8, 3, 3);
-    } else if (this.type === 'swamp_horror') {
-      ctx.fillStyle = '#2d6a4f';
-      ctx.beginPath();
-      ctx.arc(screenX, screenY, 14, 0, Math.PI * 2);
-      ctx.fill();
-      // Glowing green venom warts
-      ctx.fillStyle = '#70e000';
-      ctx.beginPath();
-      ctx.arc(screenX - 5, screenY - 5, 3, 0, Math.PI * 2);
-      ctx.arc(screenX + 6, screenY + 2, 4, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (this.type === 'volcanic_scorpion') {
-      ctx.fillStyle = '#851800';
-      ctx.fillRect(screenX - 14, screenY - 8, 28, 18);
-      // Stinger
-      ctx.strokeStyle = '#ffba08';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(screenX - 12, screenY);
-      ctx.quadraticCurveTo(screenX - 22, screenY - 18, screenX - 10, screenY - 22);
-      ctx.stroke();
-    } else if (this.type === 'crystal_stalker') {
-      ctx.fillStyle = '#7209b7';
-      ctx.beginPath();
-      ctx.moveTo(screenX, screenY - 18);
-      ctx.lineTo(screenX + 14, screenY + 12);
-      ctx.lineTo(screenX - 14, screenY + 12);
-      ctx.closePath();
-      ctx.fill();
-    } else if (this.type === 'alien_drone') {
-      ctx.fillStyle = '#03045e';
-      ctx.strokeStyle = '#00f5d4';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      // Plasma eye
-      ctx.fillStyle = '#f72585';
-      ctx.beginPath();
-      ctx.arc(screenX, screenY, 4, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (this.type === 'precursor_golem') {
-      // Obsidian armored body with alien conduits
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(screenX - 22, screenY - 22, 44, 44);
+    // Try drawing Pixel Art Creature Sprite
+    const drawn = characterSpriteAtlas.drawCreature(ctx, this.type, this.animTimer, screenX, screenY, 2.4);
 
-      // Glowing power conduits
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 2.5;
-      ctx.strokeRect(screenX - 18, screenY - 18, 36, 36);
+    if (!drawn) {
+      // Draw enemy by type (fallback)
+      if (this.type === 'frost_beast') {
+        ctx.fillStyle = this.isFrozen ? '#bde0fe' : '#e0fbfc';
+        ctx.fillRect(screenX - 14, screenY - 14, 28, 26);
+        ctx.fillStyle = '#0077b6'; // Horns
+        ctx.fillRect(screenX - 12, screenY - 20, 6, 8);
+        ctx.fillRect(screenX + 6, screenY - 20, 6, 8);
+      } else if (this.type === 'stalking_wolf') {
+        ctx.fillStyle = '#4a4e69';
+        ctx.fillRect(screenX - 16, screenY - 10, 32, 20);
+        ctx.fillStyle = '#22223b'; // Snout
+        ctx.fillRect(screenX + 12, screenY - 6, 8, 8);
+        // Red eyes
+        ctx.fillStyle = '#e63946';
+        ctx.fillRect(screenX + 6, screenY - 8, 3, 3);
+      } else if (this.type === 'swamp_horror') {
+        ctx.fillStyle = '#2d6a4f';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 14, 0, Math.PI * 2);
+        ctx.fill();
+        // Glowing green venom warts
+        ctx.fillStyle = '#70e000';
+        ctx.beginPath();
+        ctx.arc(screenX - 5, screenY - 5, 3, 0, Math.PI * 2);
+        ctx.arc(screenX + 6, screenY + 2, 4, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (this.type === 'volcanic_scorpion') {
+        ctx.fillStyle = '#851800';
+        ctx.fillRect(screenX - 14, screenY - 8, 28, 18);
+        // Stinger
+        ctx.strokeStyle = '#ffba08';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(screenX - 12, screenY);
+        ctx.quadraticCurveTo(screenX - 22, screenY - 18, screenX - 10, screenY - 22);
+        ctx.stroke();
+      } else if (this.type === 'crystal_stalker') {
+        ctx.fillStyle = '#7209b7';
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY - 18);
+        ctx.lineTo(screenX + 14, screenY + 12);
+        ctx.lineTo(screenX - 14, screenY + 12);
+        ctx.closePath();
+        ctx.fill();
+      } else if (this.type === 'alien_drone') {
+        ctx.fillStyle = '#03045e';
+        ctx.strokeStyle = '#00f5d4';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Plasma eye
+        ctx.fillStyle = '#f72585';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 4, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (this.type === 'precursor_golem') {
+        // Obsidian armored body with alien conduits
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(screenX - 22, screenY - 22, 44, 44);
 
-      // Core pulsating crystal
-      const pulse = Math.sin(Date.now() * 0.006) * 2;
-      ctx.fillStyle = '#06b6d4';
-      ctx.beginPath();
-      ctx.arc(screenX, screenY, 8 + pulse, 0, Math.PI * 2);
-      ctx.fill();
+        // Glowing power conduits
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(screenX - 18, screenY - 18, 36, 36);
+
+        // Core pulsating crystal
+        const pulse = Math.sin(Date.now() * 0.006) * 2;
+        ctx.fillStyle = '#06b6d4';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 8 + pulse, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     // Nocturnal Predator Glowing Eyes (Fase 3.2)
