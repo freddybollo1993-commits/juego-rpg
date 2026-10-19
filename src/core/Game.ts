@@ -453,11 +453,52 @@ export class Game {
       this.player.vitals.stamina = 100;
     }
 
-    // 2.5D Smooth visual interpolation towards target isometric position
-    this.player.x += (this.targetPlayerX - this.player.x) * 0.25;
-    this.player.y += (this.targetPlayerY - this.player.y) * 0.25;
-    this.player.update(delta);
-    this.turnSystem.updateFloatingTexts(delta);
+    // ──────────────────────────────────────────────────────────────────────────
+    // Continuous Free Movement (Pixel Art Real-Time Navigation)
+    // ──────────────────────────────────────────────────────────────────────────
+    if (this.input.moveX !== 0 || this.input.moveY !== 0) {
+      const moveSpeed = this.player.isRunning ? this.player.speed * 1.4 : this.player.speed;
+      const targetVx = this.input.moveX * moveSpeed;
+      const targetVy = this.input.moveY * moveSpeed;
+
+      // Update player facing direction based on movement vector
+      if (Math.abs(this.input.moveX) > Math.abs(this.input.moveY)) {
+        this.player.facing = this.input.moveX > 0 ? 'right' : 'left';
+      } else {
+        this.player.facing = this.input.moveY > 0 ? 'down' : 'up';
+      }
+
+      // Check collision along next frame in world pixels
+      const nextX = this.player.x + targetVx * effectiveDelta;
+      const nextY = this.player.y + targetVy * effectiveDelta;
+
+      const nextGridPos = IsometricGrid.screenToGrid(nextX, nextY);
+      if (this.grid.isPassable(nextGridPos.gx, nextGridPos.gy)) {
+        this.player.x = nextX;
+        this.player.y = nextY;
+        this.player.gx = nextGridPos.gx;
+        this.player.gy = nextGridPos.gy;
+        this.playerGx = nextGridPos.gx;
+        this.playerGy = nextGridPos.gy;
+        this.targetPlayerX = nextX;
+        this.targetPlayerY = nextY;
+        this.player.isRunning = true;
+
+        // Reveal Fog of War as the player moves continuously
+        const sight = this.player.isHoldingTorch ? 7 : 5;
+        this.grid.updateFogOfWar(this.playerGx, this.playerGy, sight, []);
+      } else {
+        this.player.isRunning = false;
+      }
+    } else {
+      // Interpolate towards stepped tile target if D-Pad click was used
+      this.player.x += (this.targetPlayerX - this.player.x) * 0.25;
+      this.player.y += (this.targetPlayerY - this.player.y) * 0.25;
+      this.player.isRunning = false;
+    }
+
+    this.player.update(effectiveDelta);
+    this.turnSystem.updateFloatingTexts(effectiveDelta);
 
     // ─────────────────────────────────────────────────────────────────────
     // All combat, enemy AI, survival and interaction logic is disabled

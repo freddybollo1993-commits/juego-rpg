@@ -4,6 +4,7 @@ import { soundManager } from '../audio/SoundManager';
 import { Arrow, ArrowType } from './Arrow';
 import { TalentSystem } from '../systems/TalentSystem';
 import type { Enemy } from './Enemy';
+import { characterSpriteAtlas } from '../core/CharacterSpriteAtlas';
 
 export interface ActiveEphemeralSlot {
   itemId: string;
@@ -36,6 +37,7 @@ export class Player {
   public facing: 'left' | 'right' | 'up' | 'down' = 'down';
   public isResting: boolean = false;
   public isClimbing: boolean = false;
+  public animTimer: number = 0;
 
   // Vitals
   public vitals: VitalStatus = {
@@ -250,6 +252,9 @@ export class Player {
       this.x += this.vx * delta;
       this.y += this.vy * delta;
     }
+
+    // Tick sprite animation timer
+    this.animTimer += delta;
 
     if (this.dashCooldown > 0) {
       this.dashCooldown -= delta;
@@ -634,46 +639,70 @@ export class Player {
       ctx.translate(-screenX, -(screenY - 6));
     }
 
-    // 2.5D Ground Shadow (Anchored precisely to diamond tile center)
+    // 2.5D Ground Shadow (Anchored precisely to feet center)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.beginPath();
     ctx.ellipse(screenX, screenY + 2, 16, 7, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Body (Medieval Explorer Outfit) - Anchored so feet touch diamond center
-    ctx.fillStyle = '#5c4033'; // Leather tunic
-    ctx.fillRect(screenX - 12, screenY - 38, 24, 28);
+    // Determine current animation state
+    let animState: 'idle' | 'run' | 'slice' | 'death' = 'idle';
+    if (this.vitals.health <= 0) {
+      animState = 'death';
+    } else if (this.isAttacking) {
+      animState = 'slice';
+    } else if (this.isRunning || Math.hypot(this.vx, this.vy) > 10) {
+      animState = 'run';
+    }
 
-    // Belt & Pouch
-    ctx.fillStyle = '#2b1d0c';
-    ctx.fillRect(screenX - 13, screenY - 22, 26, 4);
+    // Try drawing Pixel Crawler Animated Sprite Sheet
+    const spriteDrawn = characterSpriteAtlas.draw(
+      ctx,
+      'player',
+      animState,
+      this.facing,
+      this.animTimer,
+      screenX,
+      screenY,
+      1.15 // slight scale for great visibility
+    );
 
-    // Legs
-    ctx.fillStyle = '#3a2e2b';
-    ctx.fillRect(screenX - 9, screenY - 10, 7, 12);
-    ctx.fillRect(screenX + 2, screenY - 10, 7, 12);
+    if (!spriteDrawn) {
+      // Fallback Body (Medieval Explorer Outfit) - Anchored so feet touch center
+      ctx.fillStyle = '#5c4033'; // Leather tunic
+      ctx.fillRect(screenX - 12, screenY - 38, 24, 28);
 
-    // Head
-    ctx.fillStyle = '#e0ac69'; // Skin tone
-    ctx.beginPath();
-    ctx.arc(screenX, screenY - 46, 10, 0, Math.PI * 2);
-    ctx.fill();
+      // Belt & Pouch
+      ctx.fillStyle = '#2b1d0c';
+      ctx.fillRect(screenX - 13, screenY - 22, 26, 4);
 
-    // Hair / Explorer Hood
-    ctx.fillStyle = '#3e2723';
-    ctx.beginPath();
-    ctx.arc(screenX, screenY - 49, 10, Math.PI, Math.PI * 2);
-    ctx.fill();
+      // Legs
+      ctx.fillStyle = '#3a2e2b';
+      ctx.fillRect(screenX - 9, screenY - 10, 7, 12);
+      ctx.fillRect(screenX + 2, screenY - 10, 7, 12);
 
-    // Eyes according to direction
-    ctx.fillStyle = '#111';
-    if (this.facing === 'down') {
-      ctx.fillRect(screenX - 4, screenY - 46, 2, 3);
-      ctx.fillRect(screenX + 2, screenY - 46, 2, 3);
-    } else if (this.facing === 'left') {
-      ctx.fillRect(screenX - 8, screenY - 46, 2, 3);
-    } else if (this.facing === 'right') {
-      ctx.fillRect(screenX + 6, screenY - 46, 2, 3);
+      // Head
+      ctx.fillStyle = '#e0ac69'; // Skin tone
+      ctx.beginPath();
+      ctx.arc(screenX, screenY - 46, 10, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Hair / Explorer Hood
+      ctx.fillStyle = '#3e2723';
+      ctx.beginPath();
+      ctx.arc(screenX, screenY - 49, 10, Math.PI, Math.PI * 2);
+      ctx.fill();
+
+      // Eyes according to direction
+      ctx.fillStyle = '#111';
+      if (this.facing === 'down') {
+        ctx.fillRect(screenX - 4, screenY - 46, 2, 3);
+        ctx.fillRect(screenX + 2, screenY - 46, 2, 3);
+      } else if (this.facing === 'left') {
+        ctx.fillRect(screenX - 8, screenY - 46, 2, 3);
+      } else if (this.facing === 'right') {
+        ctx.fillRect(screenX + 6, screenY - 46, 2, 3);
+      }
     }
 
     // Guard Stance Energy Shield (Turn-based defense feedback)
