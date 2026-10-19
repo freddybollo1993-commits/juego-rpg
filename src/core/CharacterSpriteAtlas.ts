@@ -92,14 +92,15 @@ export class CharacterSpriteAtlas {
     const dem = '/pixel_crawler/creatures/demons/Basic Demon Animations';
     const und = '/pixel_crawler/creatures/undead/Basic Undead Animations';
     const dra = '/pixel_crawler/creatures/dragons/Basic Dragon Animations';
+    const mon = '/pixel_crawler/creatures/monsters/Basic Monster Animations';
 
     // Map each regional enemy type to a high quality pixel crawler creature
     this.registerCreature('mob_stalking_wolf', `${dem}/crimson imp/CrimsonImp.png`, 4, 16, 16);
     this.registerCreature('mob_frost_beast', `${und}/Brittle Archer/BrittleArcher.png`, 4, 16, 16);
-    this.registerCreature('mob_swamp_horror', `${und}/Toxic Hound/ToxicHound.png`, 4, 16, 16);
+    this.registerCreature('mob_swamp_horror', `${mon}/Death Slime/DeathSlime.png`, 4, 16, 16);
     this.registerCreature('mob_volcanic_scorpion', `${dem}/pit balor/PitBalor.png`, 4, 16, 16);
-    this.registerCreature('mob_crystal_stalker', `${und}/Grave Revenant/GraveRevenant.png`, 4, 16, 16);
-    this.registerCreature('mob_alien_drone', `${dem}/floating eye/FloatingEye.png`, 4, 16, 16);
+    this.registerCreature('mob_crystal_stalker', `${mon}/Stone Troll/StoneTroll.png`, 4, 16, 16);
+    this.registerCreature('mob_alien_drone', `${mon}/Ocular Watcher/OcularWatcher.png`, 4, 16, 16);
     this.registerCreature('mob_precursor_golem', `${dra}/Young Red Dragon/YoungRedDragon.png`, 4, 16, 16);
   }
 
