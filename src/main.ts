@@ -146,6 +146,10 @@ function initApp() {
   bindTouchOrClick('btn-iso-e',    () => game.stepPlayer( 1, -1));
   bindTouchOrClick('btn-iso-wait', () => game.waitPlayer());
 
+  // Bind Combat Action Buttons
+  bindTouchOrClick('btn-touch-attack', () => game.attackNearest());
+  bindTouchOrClick('btn-touch-dodge',  () => game.triggerDodgeAction());
+
   // ──────────────────────────────────────────────────────────────────────────
   // Click / Tap en canvas → mover / interactuar con casilla
   // ──────────────────────────────────────────────────────────────────────────
@@ -187,12 +191,19 @@ function initApp() {
       case 'z': game.stepPlayer(-1,  1); break; // W diagonal
       case 'c': game.stepPlayer( 1,  1); break; // S diagonal
       case ' ':
+      case 'k':
+        e.preventDefault();
+        game.triggerDodgeAction();
+        break;
       case '.':
         e.preventDefault();
         game.waitPlayer();
         break;
+      case 'f':
+      case 'j':
+        game.attackNearest();
+        break;
       case 'b': game.triggerBowAction();       break;
-      case 'f': game.attackNearest();          break;
       case 'i': game.openInventory();          break;
       case 'm': game.openWorldMap();           break;
       case 'x': game.triggerSacrificeAction(); break;

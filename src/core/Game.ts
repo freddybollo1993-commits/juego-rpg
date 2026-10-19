@@ -35,11 +35,10 @@ import { talentModal } from '../ui/TalentModal';
 
 export class Game {
   // ─────────────────────────────────────────────────────────────────────────
-  // PHASE FLAG — Set to `true` to isolate ONLY the movement system.
-  // Enemies, NPC, objects (blocking), combat, bow, survival and boss
-  // are all disabled until this is set back to `false`.
+  // PHASE FLAG — Set to `false` to enable full combat, enemies, boss,
+  // NPCs, bow, traps and real-time interaction.
   // ─────────────────────────────────────────────────────────────────────────
-  public static MOVEMENT_ONLY: boolean = true;
+  public static MOVEMENT_ONLY: boolean = false;
 
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
