@@ -302,10 +302,7 @@ export class IsometricGrid {
     ctx.fillStyle = isDim ? '#1e293b' : colors.top;
     ctx.fill();
 
-    // Subtle tile grid borders
-    ctx.strokeStyle = isDim ? 'rgba(15, 23, 42, 0.4)' : 'rgba(0, 0, 0, 0.15)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+
 
     // Biome-specific surface details
     if (!isDim) {

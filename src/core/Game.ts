@@ -467,32 +467,32 @@ export class Game {
         this.player.facing = this.input.moveY > 0 ? 'down' : 'up';
       }
 
-      // Check collision along next frame in world pixels
-      const nextX = this.player.x + targetVx * effectiveDelta;
-      const nextY = this.player.y + targetVy * effectiveDelta;
-
-      const nextGridPos = IsometricGrid.screenToGrid(nextX, nextY);
-      if (this.grid.isPassable(nextGridPos.gx, nextGridPos.gy)) {
-        this.player.x = nextX;
-        this.player.y = nextY;
-        this.player.gx = nextGridPos.gx;
-        this.player.gy = nextGridPos.gy;
-        this.playerGx = nextGridPos.gx;
-        this.playerGy = nextGridPos.gy;
-        this.targetPlayerX = nextX;
-        this.targetPlayerY = nextY;
-        this.player.isRunning = true;
-
-        // Reveal Fog of War as the player moves continuously
-        const sight = this.player.isHoldingTorch ? 7 : 5;
-        this.grid.updateFogOfWar(this.playerGx, this.playerGy, sight, []);
-      } else {
-        this.player.isRunning = false;
+      // Check collision per axis for smooth sliding along obstacles
+      const candidateX = this.player.x + targetVx * effectiveDelta;
+      const gridPosX = IsometricGrid.screenToGrid(candidateX, this.player.y);
+      if (this.grid.isPassable(gridPosX.gx, gridPosX.gy)) {
+        this.player.x = candidateX;
       }
+
+      const candidateY = this.player.y + targetVy * effectiveDelta;
+      const gridPosY = IsometricGrid.screenToGrid(this.player.x, candidateY);
+      if (this.grid.isPassable(gridPosY.gx, gridPosY.gy)) {
+        this.player.y = candidateY;
+      }
+
+      const finalPos = IsometricGrid.screenToGrid(this.player.x, this.player.y);
+      this.player.gx = finalPos.gx;
+      this.player.gy = finalPos.gy;
+      this.playerGx = finalPos.gx;
+      this.playerGy = finalPos.gy;
+      this.targetPlayerX = this.player.x;
+      this.targetPlayerY = this.player.y;
+      this.player.isRunning = true;
+
+      // Reveal Fog of War as the player moves continuously
+      const sight = this.player.isHoldingTorch ? 7 : 5;
+      this.grid.updateFogOfWar(this.playerGx, this.playerGy, sight, []);
     } else {
-      // Interpolate towards stepped tile target if D-Pad click was used
-      this.player.x += (this.targetPlayerX - this.player.x) * 0.25;
-      this.player.y += (this.targetPlayerY - this.player.y) * 0.25;
       this.player.isRunning = false;
     }
 
@@ -1428,26 +1428,7 @@ export class Game {
     }
     ctx.restore();
 
-    // 4. Subtle Spatial Reference Grid
-    const tileSize = 64;
-    const startCol = Math.floor(this.cameraX / tileSize);
-    const endCol = startCol + Math.ceil(width / tileSize) + 1;
-    const startRow = Math.floor(this.cameraY / tileSize);
-    const endRow = startRow + Math.ceil(height / tileSize) + 1;
 
-    ctx.save();
-    ctx.strokeStyle = reg.accentColor;
-    ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.12;
-
-    for (let c = startCol; c <= endCol; c++) {
-      for (let r = startRow; r <= endRow; r++) {
-        const x = c * tileSize - this.cameraX;
-        const y = r * tileSize - this.cameraY;
-        ctx.strokeRect(x, y, tileSize, tileSize);
-      }
-    }
-    ctx.restore();
   }
 
   private drawChokepoints(ctx: CanvasRenderingContext2D) {

@@ -132,18 +132,44 @@ function initApp() {
   };
 
   // ──────────────────────────────────────────────────────────────────────────
-  // D-Pad isométrico 8 direcciones
-  // Eje:       NW(-1,0) NE(0,-1) SE(+1,0) SW(0,+1)
-  // Diagonal:  N(-1,-1) E(+1,-1) S(+1,+1) W(-1,+1)
+  // D-Pad analógico continuo para móvil (8 direcciones con velocidad)
   // ──────────────────────────────────────────────────────────────────────────
-  bindTouchOrClick('btn-iso-nw',   () => game.stepPlayer(-1,  0));
-  bindTouchOrClick('btn-iso-ne',   () => game.stepPlayer( 0, -1));
-  bindTouchOrClick('btn-iso-se',   () => game.stepPlayer( 1,  0));
-  bindTouchOrClick('btn-iso-sw',   () => game.stepPlayer( 0,  1));
-  bindTouchOrClick('btn-iso-n',    () => game.stepPlayer(-1, -1));
-  bindTouchOrClick('btn-iso-s',    () => game.stepPlayer( 1,  1));
-  bindTouchOrClick('btn-iso-w',    () => game.stepPlayer(-1,  1));
-  bindTouchOrClick('btn-iso-e',    () => game.stepPlayer( 1, -1));
+  const bindDPadHold = (id: string, mx: number, my: number) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+
+    const startMove = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      (game as any).input.moveX = mx;
+      (game as any).input.moveY = my;
+    };
+
+    const stopMove = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if ((game as any).input.moveX === mx && (game as any).input.moveY === my) {
+        (game as any).input.moveX = 0;
+        (game as any).input.moveY = 0;
+      }
+    };
+
+    btn.addEventListener('touchstart', startMove);
+    btn.addEventListener('touchend', stopMove);
+    btn.addEventListener('touchcancel', stopMove);
+    btn.addEventListener('mousedown', startMove);
+    btn.addEventListener('mouseup', stopMove);
+    btn.addEventListener('mouseleave', stopMove);
+  };
+
+  bindDPadHold('btn-iso-nw', -1, -0.5);
+  bindDPadHold('btn-iso-ne',  1, -0.5);
+  bindDPadHold('btn-iso-se',  1,  0.5);
+  bindDPadHold('btn-iso-sw', -1,  0.5);
+  bindDPadHold('btn-iso-n',   0, -1);
+  bindDPadHold('btn-iso-s',   0,  1);
+  bindDPadHold('btn-iso-w',  -1,  0);
+  bindDPadHold('btn-iso-e',   1,  0);
   bindTouchOrClick('btn-iso-wait', () => game.waitPlayer());
 
   // Bind Combat Action Buttons
@@ -170,34 +196,17 @@ function initApp() {
     game.grid.hoveredTile = (game.grid.constructor as any).screenToGrid(worldX, worldY);
   });
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Teclado — 8 direcciones isométricas
-  //   WASD / flechas = 4 ejes principales
-  //   Q E Z C        = 4 diagonales
-  //   Espacio / .    = esperar turno
-  // ──────────────────────────────────────────────────────────────────────────
+  // Desktop Keyboard Controls for Free Movement & Combat Actions
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     // Close settings panel with Escape
     if (e.key === 'Escape') { closePanel(); return; }
 
     switch (e.key.toLowerCase()) {
-      case 'w': case 'arrowup':    game.stepPlayer( 0, -1); break; // NE
-      case 's': case 'arrowdown':  game.stepPlayer( 0,  1); break; // SW
-      case 'd': case 'arrowright': game.stepPlayer( 1,  0); break; // SE
-      case 'a': case 'arrowleft':  game.stepPlayer(-1,  0); break; // NW
-      case 'q': game.stepPlayer(-1, -1); break; // N diagonal
-      case 'e': game.stepPlayer( 1, -1); break; // E diagonal
-      case 'z': game.stepPlayer(-1,  1); break; // W diagonal
-      case 'c': game.stepPlayer( 1,  1); break; // S diagonal
       case ' ':
       case 'k':
         e.preventDefault();
         game.triggerDodgeAction();
-        break;
-      case '.':
-        e.preventDefault();
-        game.waitPlayer();
         break;
       case 'f':
       case 'j':
