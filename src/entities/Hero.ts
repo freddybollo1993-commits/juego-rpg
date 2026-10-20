@@ -1,4 +1,4 @@
-// Entidad del Héroe Principal con Dash Explosivo y Combo de Ataque Rúnico Completo
+// Entidad del Héroe Principal con Movilidad Libre 2.5D en 360°, Dash Direccional y Arco de Ataque Orientado
 import { Direction4, AnimationState, HeroSpriteSheet } from '../graphics/HeroSpriteSheet';
 import { InputState } from '../input/InputManager';
 import { AssetLoader } from '../core/AssetLoader';
@@ -35,20 +35,24 @@ export class Hero {
   public vx: number = 0;
   public vy: number = 0;
 
-  // Escala táctica compacta
+  // Escala compacta 1:1 con bloques de 64x32
   public static readonly BASE_W = 38;
   public static readonly BASE_H = 52;
 
-  // Footprint Collision
-  public colRadiusX: number = 9;
-  public colRadiusY: number = 4.5;
+  // Footprint Collision Sólido
+  public colRadiusX: number = 10;
+  public colRadiusY: number = 5;
 
-  public walkSpeed: number = 95;
-  public runSpeed: number = 165;
-  public dashSpeed: number = 340;
+  public walkSpeed: number = 100;
+  public runSpeed: number = 175;
+  public dashSpeed: number = 360;
 
   public fsmState: AnimationState = 'IDLE';
   public direction: Direction4 = 'SE';
+
+  // Vector de orientación y puntería en 360°
+  public aimDirX: number = 1;
+  public aimDirY: number = 0.5;
   public facingX: number = 1;
   public facingY: number = 1;
 
@@ -66,6 +70,9 @@ export class Hero {
   public isAttacking: boolean = false;
   public attackTimer: number = 0;
   public attackHitboxActive: boolean = false;
+  public attackAngle: number = 0; // Ángulo en radianes del tajo actual
+  public attackHitX: number = 0;
+  public attackHitY: number = 0;
 
   public hitStopFrames: number = 0;
 
@@ -129,8 +136,11 @@ export class Hero {
 
     if (this.dashCooldown > 0) this.dashCooldown -= dt;
 
-    // Actualizar Orientación
+    // Actualizar vector continuo de orientación en 360° (Aim Vector)
     if (input.isMoving && !this.isDashing && !this.isAttacking) {
+      this.aimDirX = input.dx;
+      this.aimDirY = input.dy;
+
       if (Math.abs(input.dx) > 0.08) {
         this.facingX = input.dx > 0 ? 1 : -1;
       }
@@ -145,20 +155,20 @@ export class Hero {
       }
     }
 
-    // 1. FSM: ATAQUE
+    // 1. FSM: ATAQUE MULTIDIRECCIONAL EN CUALQUIER DIRECCIÓN
     if (this.isAttacking) {
       this.attackTimer += dt;
-      // 4 frames: 0 (0-0.09s), 1 (0.09-0.20s), 2 (0.20-0.31s), 3 (0.31-0.40s)
-      if (this.attackTimer < 0.09) {
+      // 4 frames: 0 (0-0.08s), 1 (0.08-0.18s), 2 (0.18-0.28s), 3 (0.28-0.36s)
+      if (this.attackTimer < 0.08) {
         this.currentFrame = 0;
         this.attackHitboxActive = false;
-      } else if (this.attackTimer < 0.20) {
+      } else if (this.attackTimer < 0.18) {
         this.currentFrame = 1;
         this.attackHitboxActive = true;
-      } else if (this.attackTimer < 0.31) {
+      } else if (this.attackTimer < 0.28) {
         this.currentFrame = 2;
         this.attackHitboxActive = true;
-      } else if (this.attackTimer < 0.40) {
+      } else if (this.attackTimer < 0.36) {
         this.currentFrame = 3;
         this.attackHitboxActive = false;
       } else {
@@ -168,9 +178,9 @@ export class Hero {
         this.attackTimer = 0;
       }
 
-      // Frenado durante el ataque
-      this.vx *= 0.8;
-      this.vy *= 0.8;
+      // Desplazamiento inercial del ataque hacia la dirección apuntada
+      this.vx *= 0.82;
+      this.vy *= 0.82;
       this.x += this.vx * dt;
       this.y += this.vy * dt;
 
@@ -184,26 +194,44 @@ export class Hero {
       this.fsmState = 'ATTACK';
       this.attackTimer = 0;
       this.currentFrame = 0;
-      this.scaleX = 1.2;
-      this.scaleY = 0.85;
+
+      // Fijar el ángulo del ataque hacia la dirección exacta apuntada (input o último facing)
+      let ax = input.isMoving ? input.dx : (this.facingX * 0.89);
+      let ay = input.isMoving ? input.dy : (this.facingY * 0.45);
+      const len = Math.hypot(ax, ay);
+      if (len > 0) {
+        ax /= len;
+        ay /= len;
+      }
+      this.aimDirX = ax;
+      this.aimDirY = ay;
+      this.attackAngle = Math.atan2(ay * 2, ax); // Ángulo corregido a proporción 2:1
+
+      // Calcular centro de impacto de la Hitbox
+      this.attackHitX = this.x + this.aimDirX * 38;
+      this.attackHitY = this.y + this.aimDirY * 22;
+
+      // Paso inercial al lanzar el tajo
+      this.vx = this.aimDirX * 65;
+      this.vy = this.aimDirY * 45;
+
+      this.scaleX = 1.18;
+      this.scaleY = 0.86;
       this.spawnDust(3);
-      // Ligero paso hacia adelante al atacar
-      this.vx = this.facingX * 35;
-      this.vy = (this.facingY * 0.5) * 35;
       this.updateJuice(dt, false);
       this.updateParticles(dt);
       return;
     }
 
-    // 2. FSM: DASH (Activación en cualquier momento)
+    // 2. FSM: DASH MULTIDIRECCIONAL EN 360°
     if (input.isDash && this.dashCooldown <= 0) {
       this.isDashing = true;
-      this.dashTimer = 0.25;
+      this.dashTimer = 0.24;
       this.dashCooldown = 0.55;
       this.fsmState = 'DASH';
 
-      // Dirección del impulso
-      let dirX = input.isMoving ? input.dx : (this.facingX * 0.9);
+      // Impulso hacia el vector de dirección exacto (input activo o última orientación)
+      let dirX = input.isMoving ? input.dx : (this.facingX * 0.89);
       let dirY = input.isMoving ? input.dy : (this.facingY * 0.45);
       const len = Math.hypot(dirX, dirY);
       if (len > 0) {
@@ -214,7 +242,7 @@ export class Hero {
       this.dashDirY = dirY;
 
       this.scaleX = 1.35;
-      this.scaleY = 0.78;
+      this.scaleY = 0.76;
       this.spawnDust(6);
     }
 
@@ -223,9 +251,8 @@ export class Hero {
       this.vx = this.dashDirX * this.dashSpeed;
       this.vy = this.dashDirY * this.dashSpeed;
 
-      // Generación frecuente de Afterimages
       this.afterImageSpawnTimer += dt;
-      if (this.afterImageSpawnTimer >= 0.035) {
+      if (this.afterImageSpawnTimer >= 0.032) {
         this.afterImageSpawnTimer = 0;
         this.spawnAfterImage();
       }
@@ -235,7 +262,7 @@ export class Hero {
         this.fsmState = input.isMoving ? 'RUN' : 'IDLE';
       }
     } else {
-      // 3. LOCOMOCIÓN NORMALIZADA
+      // 3. MOVILIDAD LIBRE CONTINUA (WALK / RUN / IDLE)
       if (input.isMoving) {
         const isRun = input.isRun;
         const currentSpeed = isRun ? this.runSpeed : this.walkSpeed;
@@ -422,20 +449,59 @@ export class Hero {
     ctx.scale(this.facingX * this.scaleX, this.scaleY);
     this.drawSpriteTexture(ctx);
     ctx.restore();
+
+    // 5. RENDERIZAR ARCO DE ENERGÍA CIAN DIRECCIONAL (Slash VFX en 360°)
+    if (this.isAttacking && (this.currentFrame === 1 || this.currentFrame === 2)) {
+      this.renderDirectionalSlashArc(ctx, screenX, screenY);
+    }
+  }
+
+  // Dibuja el arco curvo de energía luminosa cian alineado exactamente con la dirección del ataque
+  private renderDirectionalSlashArc(ctx: CanvasRenderingContext2D, sx: number, sy: number): void {
+    ctx.save();
+    ctx.translate(sx, sy - 20); // Altura del pecho/espada
+    ctx.rotate(this.attackAngle);
+
+    const arcRadius = 32;
+    const progress = this.currentFrame === 1 ? 0.6 : 1.0;
+
+    // Resplandor cian exterior
+    ctx.beginPath();
+    ctx.arc(0, 0, arcRadius, -Math.PI * 0.35 * progress, Math.PI * 0.35 * progress);
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+    ctx.stroke();
+
+    // Núcleo brillante blanco-cian interior
+    ctx.beginPath();
+    ctx.arc(0, 0, arcRadius, -Math.PI * 0.30 * progress, Math.PI * 0.30 * progress);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+
+    ctx.restore();
   }
 
   private drawSpriteTexture(ctx: CanvasRenderingContext2D): void {
-    // RENDERIZADO ESPECIAL PARA ATAQUE: Recorte exacto de los 4 frames con estela cian
+    // Si ataca:
     if (this.fsmState === 'ATTACK') {
       const attackImg = AssetLoader.getImage('HERO_ATTACK');
       if (attackImg && attackImg.complete && attackImg.naturalWidth > 0) {
-        // Coordenadas medidas de los 4 frames en hero_attack.png
-        const attackFrames = [
-          { sx: 35, sy: 65, sw: 70, sh: 195, drawW: 38, drawH: 52, offX: 0 },
-          { sx: 225, sy: 65, sw: 275, sh: 195, drawW: 75, drawH: 52, offX: 18 },
-          { sx: 555, sy: 65, sw: 240, sh: 195, drawW: 70, drawH: 52, offX: 16 },
-          { sx: 920, sy: 65, sw: 65, sh: 195, drawW: 38, drawH: 52, offX: 0 }
-        ];
+        // Si ataca hacia arriba/Norte, usamos la fila superior o postura de espaldas
+        const useSwRow = this.facingX < 0;
+        const attackFrames = useSwRow
+          ? [
+              { sx: 40, sy: 380, sw: 60, sh: 160, drawW: 38, drawH: 52, offX: 0 },
+              { sx: 290, sy: 380, sw: 195, sh: 160, drawW: 68, drawH: 52, offX: 14 },
+              { sx: 600, sy: 380, sw: 185, sh: 160, drawW: 65, drawH: 52, offX: 12 },
+              { sx: 908, sy: 380, sw: 50, sh: 160, drawW: 38, drawH: 52, offX: 0 }
+            ]
+          : [
+              { sx: 35, sy: 65, sw: 70, sh: 195, drawW: 38, drawH: 52, offX: 0 },
+              { sx: 225, sy: 65, sw: 275, sh: 195, drawW: 75, drawH: 52, offX: 16 },
+              { sx: 555, sy: 65, sw: 240, sh: 195, drawW: 70, drawH: 52, offX: 14 },
+              { sx: 920, sy: 65, sw: 65, sh: 195, drawW: 38, drawH: 52, offX: 0 }
+            ];
 
         const f = attackFrames[this.currentFrame] || attackFrames[0];
         ctx.drawImage(
@@ -453,7 +519,6 @@ export class Hero {
       }
     }
 
-    // RENDERIZADO DE MOVIMIENTO / DASH / IDLE
     let imgKey = 'HERO_IDLE_WALK';
     if (this.fsmState === 'RUN' || this.fsmState === 'DASH') {
       imgKey = 'HERO_RUN_DASH';
@@ -485,24 +550,23 @@ export class Hero {
     if (this.fsmState === 'IDLE') {
       if (this.facingY < 0) {
         rowIndex = 0;
-        colIndex = 5;
+        colIndex = 5; // Vista de espaldas
       } else {
         rowIndex = 0;
         colIndex = this.currentFrame % 4;
       }
     } else if (this.fsmState === 'WALK') {
       if (this.facingY < 0) {
-        rowIndex = 3;
+        rowIndex = 3; // Caminar hacia arriba
         colIndex = (this.currentFrame % 6);
       } else {
-        rowIndex = 1;
+        rowIndex = 1; // Caminar hacia abajo
         colIndex = (this.currentFrame % 6);
       }
     } else if (this.fsmState === 'RUN') {
       rowIndex = this.facingY < 0 ? 1 : 0;
       colIndex = (this.currentFrame % 6);
     } else if (this.fsmState === 'DASH') {
-      // Pose de Dash aerodinámica baja (Fila 2 en hero_run_dash)
       rowIndex = 2;
       colIndex = 1;
     }

@@ -72,13 +72,24 @@ class GameEngine {
   private update(dt: number): void {
     this.input.update();
 
-    // Actualizar Entidades
+    // 1. Actualizar Entidades
     this.hero.update(dt, this.input.state);
     this.wolf.update(dt, this.hero);
     this.golem.update(dt, this.hero);
     this.environment.update(dt, this.hero);
 
-    // Cinemática de Combate: Hitbox Activa con Criaturas y Elementos del Entorno
+    // 2. FÍSICA DE MASA RÍGIDA CONTRA ESTRUCTURAS (Árboles, Rocas, Monolito)
+    // Se aplican las colisiones sólidas a las entidades reales impidiendo que atraviesen los obstáculos
+    this.environment.resolveSolidCollisions(this.hero);
+    this.environment.resolveSolidCollisions(this.wolf);
+    this.environment.resolveSolidCollisions(this.golem);
+
+    // 3. Separación elástica entre entidades (Soft Collision)
+    this.resolveEntitySeparation(this.hero, this.wolf);
+    this.resolveEntitySeparation(this.hero, this.golem);
+    this.resolveEntitySeparation(this.wolf, this.golem);
+
+    // 4. Cinemática de Combate Multidireccional: Hitbox Frontal según ángulo de ataque
     if (this.hero.attackHitboxActive) {
       if (!this.attackHitProcessed) {
         this.processHeroAttackHit();
@@ -88,53 +99,50 @@ class GameEngine {
       this.attackHitProcessed = false;
     }
 
-    // Separación física suave de masas entre entidades (Soft Collision)
-    this.resolveEntitySeparation(this.hero, this.wolf);
-    this.resolveEntitySeparation(this.hero, this.golem);
-    this.resolveEntitySeparation(this.wolf, this.golem);
-
-    // Cámara suave con seguimiento dinámico
+    // 5. Cámara suave con seguimiento dinámico
     this.camera.follow(this.hero.x, this.hero.y);
     this.camera.update();
 
-    // Actualizar HUD
+    // 6. Actualizar HUD
     this.hud.update(this.hero);
   }
 
-  // Comprobación de Hitbox contra Criaturas y Elementos del Entorno
+  // Hitbox frontal precisa orientada según el ángulo del ataque (en 360°)
   private processHeroAttackHit(): void {
-    const attackRange = 55;
+    const hitX = this.hero.attackHitX;
+    const hitY = this.hero.attackHitY;
+    const hitRadius = 38;
     let hitAnything = false;
 
-    // 1. Hitbox contra Criaturas (Lobo y Gólem)
+    // 1. Hitbox contra Criaturas
     const targets = [this.wolf, this.golem];
     for (const target of targets) {
-      const dx = target.x - this.hero.x;
-      const dy = target.y - this.hero.y;
+      const dx = target.x - hitX;
+      const dy = target.y - hitY;
       const dist = Math.hypot(dx, dy * 2);
 
-      const inFront = (this.hero.facingX > 0 && dx > -10) || (this.hero.facingX < 0 && dx < 10);
-
-      if (dist < attackRange && inFront) {
+      if (dist < hitRadius + target.colRadiusX) {
         hitAnything = true;
         target.health = Math.max(0, target.health - 25);
         if (target.health <= 0) {
           target.health = target.maxHealth;
         }
 
-        const len = Math.max(1, Math.hypot(dx, dy));
-        target.vx = (dx / len) * 220;
-        target.vy = (dy / len) * 110;
+        // Knockback en la dirección del tajo
+        const kx = target.x - this.hero.x;
+        const ky = target.y - this.hero.y;
+        const len = Math.max(1, Math.hypot(kx, ky));
+        target.vx = (kx / len) * 230;
+        target.vy = (ky / len) * 115;
       }
     }
 
-    // 2. Hitbox contra Elementos del Entorno (Árboles, Rocas, Monolito)
-    const hitProp = this.environment.checkAttackHit(this.hero.x, this.hero.y, this.hero.facingX, attackRange);
+    // 2. Hitbox contra Elementos del Entorno
+    const hitProp = this.environment.checkAttackHit(hitX, hitY, hitRadius, this.hero.facingX);
     if (hitProp) {
       hitAnything = true;
     }
 
-    // Feedback Físico: Hit-Stop
     if (hitAnything) {
       this.hero.hitStopFrames = 3;
       this.hero.spawnDust(3);
@@ -145,8 +153,8 @@ class GameEngine {
     a: { x: number; y: number; colRadiusX?: number; colRadiusY?: number },
     b: { x: number; y: number; colRadiusX?: number; colRadiusY?: number }
   ): void {
-    const rAx = a.colRadiusX || 9;
-    const rAy = a.colRadiusY || 4.5;
+    const rAx = a.colRadiusX || 10;
+    const rAy = a.colRadiusY || 5;
     const rBx = b.colRadiusX || 16;
     const rBy = b.colRadiusY || 8;
 
@@ -156,14 +164,14 @@ class GameEngine {
     const combinedRy = rAy + rBy;
 
     const nx = dx / combinedRx;
-    const ny = (dy * 2) / combinedRx;
+    const ny = dy / combinedRy;
     const distSq = nx * nx + ny * ny;
 
     if (distSq < 1.0 && distSq > 0.0001) {
       const dist = Math.sqrt(distSq);
       const overlap = 1.0 - dist;
       const pushX = (nx / dist) * overlap * combinedRx * 0.5;
-      const pushY = (ny / dist) * overlap * combinedRy * 0.25;
+      const pushY = (ny / dist) * overlap * combinedRy * 0.5;
 
       a.x += pushX;
       a.y += pushY;
@@ -192,7 +200,6 @@ class GameEngine {
     // 2. DEPTH SORTING UNIFICADO (Z-Ordering 2:1)
     const renderQueue: RenderableEntity[] = [];
 
-    // Props
     for (const prop of this.environment.props) {
       const zIndex = Math.floor((prop.x / 32 + prop.y / 16) * 1000 + 4);
       renderQueue.push({
@@ -201,19 +208,16 @@ class GameEngine {
       });
     }
 
-    // Lobo
     renderQueue.push({
       zIndex: this.wolf.getZIndex(),
       render: (c, cx, cy) => this.wolf.render(c, cx, cy)
     });
 
-    // Gólem
     renderQueue.push({
       zIndex: this.golem.getZIndex(),
       render: (c, cx, cy) => this.golem.render(c, cx, cy)
     });
 
-    // Héroe
     renderQueue.push({
       zIndex: this.hero.getZIndex(),
       render: (c, cx, cy) => this.hero.render(c, cx, cy)
@@ -225,7 +229,7 @@ class GameEngine {
       item.render(ctx, camX, camY);
     }
 
-    // 3. Renderizar Partículas de Impacto Ambiental (Hojas cayendo, Chispas, Destellos)
+    // 3. Renderizar Partículas de Impacto Ambiental
     this.environment.renderParticles(ctx, camX, camY);
 
     ctx.restore();

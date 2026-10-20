@@ -1,4 +1,4 @@
-// Entorno y Mundo 2.5D con Terreno, Props, Oclusión, Colisiones y Reactividad a Impactos (Hitbox de Entorno)
+// Entorno y Mundo 2.5D con Masa Física Real para Obstáculos y Reactividad a Impactos
 import { AssetLoader } from '../core/AssetLoader';
 import { Hero } from '../entities/Hero';
 import { TerrainTileGenerator } from '../graphics/TerrainTile';
@@ -27,7 +27,7 @@ export interface PropInstance {
   height: number;
   anchorX: number;
   anchorY: number;
-  // Footprint Collision
+  // Footprint Collision Sólido (pixel-25d-collision-physics-specialist)
   colRadiusX: number;
   colRadiusY: number;
   // Oclusión
@@ -35,7 +35,7 @@ export interface PropInstance {
   targetAlpha: number;
   phase: number;
   stiffness: number;
-  // Reactividad a Impactos (pixel-25d-collision-physics-specialist)
+  // Reactividad a Impactos
   shakeTimer: number;
   shakeIntensity: number;
   hitFlashTimer: number;
@@ -50,11 +50,9 @@ export class WorldEnvironment {
   public props: PropInstance[] = [];
   public windTime: number = 0;
 
-  // Object Pooling: Partículas Ambientales de Impacto (Hojas, Chispas, Astillas)
   private propParticles: PropParticle[] = [];
-  private static readonly MAX_PROP_PARTICLES = 50;
+  private static readonly MAX_PROP_PARTICLES = 60;
 
-  // Fallbacks procedurales
   private fallbackGrassCanvas: HTMLCanvasElement;
   private fallbackStoneCanvas: HTMLCanvasElement;
 
@@ -62,7 +60,6 @@ export class WorldEnvironment {
     this.fallbackGrassCanvas = TerrainTileGenerator.createBlockCanvas(TerrainTileGenerator.GRASS_PALETTE);
     this.fallbackStoneCanvas = TerrainTileGenerator.createBlockCanvas(TerrainTileGenerator.STONE_PALETTE);
 
-    // Inicializar pool de partículas
     for (let i = 0; i < WorldEnvironment.MAX_PROP_PARTICLES; i++) {
       this.propParticles.push({
         active: false,
@@ -84,7 +81,7 @@ export class WorldEnvironment {
   private setupProps(): void {
     let idCounter = 1;
 
-    // 1. Monolito Rúnico Central (Landmark)
+    // 1. Monolito Rúnico Central (Masa de Piedra Impenetrable)
     this.props.push({
       id: idCounter++,
       type: 'MONOLITH',
@@ -95,8 +92,8 @@ export class WorldEnvironment {
       height: 120,
       anchorX: 0.5,
       anchorY: 0.88,
-      colRadiusX: 42,
-      colRadiusY: 21,
+      colRadiusX: 48,
+      colRadiusY: 24, // Elipse masiva 2:1
       alpha: 1.0,
       targetAlpha: 1.0,
       phase: 0,
@@ -107,7 +104,7 @@ export class WorldEnvironment {
       runeGlowTimer: 0
     });
 
-    // 2. Árboles Ancestrales
+    // 2. Árboles Ancestrales (Troncos con Masa Rígida)
     const treePositions = [
       { x: -180, y: -90 },
       { x: 190, y: -80 },
@@ -131,8 +128,8 @@ export class WorldEnvironment {
         height: 150,
         anchorX: 0.5,
         anchorY: 0.92,
-        colRadiusX: 20,
-        colRadiusY: 10,
+        colRadiusX: 24,
+        colRadiusY: 12, // Masa sólida en la base del tronco
         alpha: 1.0,
         targetAlpha: 1.0,
         phase: i * 0.8,
@@ -144,7 +141,7 @@ export class WorldEnvironment {
       });
     }
 
-    // 3. Rocas con Musgo
+    // 3. Rocas con Musgo (Masa Mineral Sólida)
     const rockPositions = [
       { x: -90, y: -60 },
       { x: 110, y: -50 },
@@ -165,8 +162,8 @@ export class WorldEnvironment {
         height: 76,
         anchorX: 0.5,
         anchorY: 0.85,
-        colRadiusX: 24,
-        colRadiusY: 12,
+        colRadiusX: 30,
+        colRadiusY: 15, // Masa sólida en la roca
         alpha: 1.0,
         targetAlpha: 1.0,
         phase: 0,
@@ -179,43 +176,67 @@ export class WorldEnvironment {
     }
   }
 
-  // Detección de Ataque y Reacción de Elementos del Entorno (Hitbox del Entorno)
-  public checkAttackHit(heroX: number, heroY: number, facingX: number, range: number): boolean {
+  // FÍSICA DE MASA RÍGIDA: Impide que cualquier entidad atraviese las estructuras sólidas
+  public resolveSolidCollisions(entity: { x: number; y: number; colRadiusX: number; colRadiusY: number }): void {
+    for (const prop of this.props) {
+      const dx = entity.x - prop.x;
+      const dy = entity.y - prop.y;
+
+      const combinedRx = prop.colRadiusX + entity.colRadiusX;
+      const combinedRy = prop.colRadiusY + entity.colRadiusY;
+
+      // Distancia normalizada en espacio elíptico 2:1
+      const nx = dx / combinedRx;
+      const ny = dy / combinedRy;
+      const distSq = nx * nx + ny * ny;
+
+      // Si hay penetración física dentro de la masa del obstáculo
+      if (distSq < 1.0 && distSq > 0.00001) {
+        const dist = Math.sqrt(distSq);
+        const overlap = 1.0 - dist;
+
+        // Vector normal de expulsión hacia el exterior de la elipse
+        const pushDirX = nx / dist;
+        const pushDirY = ny / dist;
+
+        // Desplazamiento rígido directo sobre la entidad
+        entity.x += pushDirX * overlap * combinedRx;
+        entity.y += pushDirY * overlap * combinedRy;
+      }
+    }
+  }
+
+  // Detección de Ataque y Reacción de Elementos del Entorno
+  public checkAttackHit(hitX: number, hitY: number, hitRadius: number, hitDirX: number): boolean {
     let hitAny = false;
 
     for (const prop of this.props) {
-      const dx = prop.x - heroX;
-      const dy = prop.y - heroY;
+      const dx = prop.x - hitX;
+      const dy = prop.y - hitY;
+      // Proyección isométrica 2:1
       const dist = Math.hypot(dx, dy * 2);
 
-      const inFront = (facingX > 0 && dx > -12) || (facingX < 0 && dx < 12);
-
-      // Si el arma intersecta el volumen del prop
-      if (dist < range + prop.colRadiusX * 0.7 && inFront) {
+      if (dist < hitRadius + prop.colRadiusX) {
         hitAny = true;
-        this.triggerPropImpact(prop, facingX);
+        this.triggerPropImpact(prop, hitDirX);
       }
     }
 
     return hitAny;
   }
 
-  // Activa el feedback físico de impacto en el prop
   private triggerPropImpact(prop: PropInstance, hitDirX: number): void {
-    prop.shakeTimer = 0.28;
-    prop.shakeIntensity = 6.0;
-    prop.hitFlashTimer = 0.12;
+    prop.shakeTimer = 0.32;
+    prop.shakeIntensity = 7.0;
+    prop.hitFlashTimer = 0.14;
 
     if (prop.type === 'TREE') {
-      // Sacudir árbol y desprendimiento de hojas y astillas
-      this.spawnPropParticles(prop.x, prop.y - prop.height * 0.5, 'LEAF', 8, hitDirX);
+      this.spawnPropParticles(prop.x, prop.y - prop.height * 0.5, 'LEAF', 10, hitDirX);
     } else if (prop.type === 'ROCK') {
-      // Chispas minerales y polvo de roca
-      this.spawnPropParticles(prop.x, prop.y - prop.height * 0.35, 'SPARK', 6, hitDirX);
+      this.spawnPropParticles(prop.x, prop.y - prop.height * 0.35, 'SPARK', 8, hitDirX);
     } else if (prop.type === 'MONOLITH') {
-      // Destello y resonancia de glifos rúnicos celestes
-      prop.runeGlowTimer = 0.6;
-      this.spawnPropParticles(prop.x, prop.y - prop.height * 0.45, 'RUNE', 10, hitDirX);
+      prop.runeGlowTimer = 0.65;
+      this.spawnPropParticles(prop.x, prop.y - prop.height * 0.45, 'RUNE', 12, hitDirX);
     }
   }
 
@@ -229,28 +250,25 @@ export class WorldEnvironment {
         p.isLeaf = type === 'LEAF';
 
         if (type === 'LEAF') {
-          // Hojas esmeralda flotantes
           p.color = Math.random() < 0.5 ? '#65a30d' : '#84cc16';
-          p.vx = hitDirX * 30 + (Math.random() - 0.5) * 50;
-          p.vy = -40 + Math.random() * 20;
+          p.vx = hitDirX * 35 + (Math.random() - 0.5) * 60;
+          p.vy = -45 + Math.random() * 20;
           p.size = 2.5 + Math.random() * 2;
-          p.maxLife = 0.7 + Math.random() * 0.3;
+          p.maxLife = 0.75 + Math.random() * 0.3;
         } else if (type === 'SPARK') {
-          // Chispas de roca gris y dorada
           p.color = Math.random() < 0.5 ? '#fcd34d' : '#94a3b8';
-          p.vx = hitDirX * 60 + (Math.random() - 0.5) * 80;
-          p.vy = -60 + (Math.random() - 0.5) * 40;
+          p.vx = hitDirX * 65 + (Math.random() - 0.5) * 90;
+          p.vy = -65 + (Math.random() - 0.5) * 45;
           p.size = 2;
-          p.maxLife = 0.35;
+          p.maxLife = 0.38;
         } else {
-          // Partículas de energía rúnica cian
           p.color = '#38bdf8';
           const angle = Math.random() * Math.PI * 2;
-          const speed = 40 + Math.random() * 60;
+          const speed = 45 + Math.random() * 65;
           p.vx = Math.cos(angle) * speed;
           p.vy = Math.sin(angle) * speed;
           p.size = 3;
-          p.maxLife = 0.5;
+          p.maxLife = 0.55;
         }
 
         p.life = p.maxLife;
@@ -261,41 +279,11 @@ export class WorldEnvironment {
     }
   }
 
-  public resolveSolidCollisions(entity: { x: number; y: number; colRadiusX: number; colRadiusY: number }): void {
-    for (const prop of this.props) {
-      const dx = entity.x - prop.x;
-      const dy = entity.y - prop.y;
-
-      const nx = dx / (prop.colRadiusX + entity.colRadiusX);
-      const ny = (dy * 2) / (prop.colRadiusX + entity.colRadiusX);
-      const distSq = nx * nx + ny * ny;
-
-      if (distSq < 1.0 && distSq > 0.0001) {
-        const dist = Math.sqrt(distSq);
-        const overlap = 1.0 - dist;
-        const pushX = (nx / dist) * overlap * (prop.colRadiusX + entity.colRadiusX);
-        const pushY = (ny / dist) * overlap * (prop.colRadiusY + entity.colRadiusY);
-
-        entity.x += pushX;
-        entity.y += pushY;
-      }
-    }
-  }
-
   public update(dt: number, hero: Hero): void {
     this.windTime += dt * 2.0;
 
-    // Resolver colisión sólida
-    this.resolveSolidCollisions({
-      x: hero.x,
-      y: hero.y,
-      colRadiusX: 9,
-      colRadiusY: 4.5
-    });
-
     // Actualizar estados dinámicos de los props
     for (const prop of this.props) {
-      // Estremecimiento por impacto
       if (prop.shakeTimer > 0) {
         prop.shakeTimer -= dt;
         prop.shakeIntensity *= 0.88;
@@ -304,7 +292,7 @@ export class WorldEnvironment {
       if (prop.hitFlashTimer > 0) prop.hitFlashTimer -= dt;
       if (prop.runeGlowTimer > 0) prop.runeGlowTimer -= dt;
 
-      // Oclusión suave
+      // Oclusión suave cuando el héroe está detrás del tronco/base
       const isBehind = hero.y < prop.y && Math.abs(hero.x - prop.x) < prop.width * 0.45;
       const isCloseY = prop.y - hero.y < prop.height * 0.75 && prop.y - hero.y > -10;
 
@@ -317,7 +305,7 @@ export class WorldEnvironment {
       prop.alpha += (prop.targetAlpha - prop.alpha) * 0.15;
     }
 
-    // Actualizar partículas de props
+    // Actualizar partículas
     for (const p of this.propParticles) {
       if (p.active) {
         p.life -= dt;
@@ -328,11 +316,10 @@ export class WorldEnvironment {
           p.y += p.vy * dt;
 
           if (p.isLeaf) {
-            // Hojas oscilando y cayendo por gravedad suave
             p.vy += 45 * dt;
             p.vx += Math.sin(p.life * 10) * 12 * dt;
           } else {
-            p.vy += 90 * dt; // Gravedad mineral
+            p.vy += 90 * dt;
           }
 
           p.alpha = Math.max(0, p.life / p.maxLife);
@@ -388,13 +375,12 @@ export class WorldEnvironment {
     let screenX = Math.round(prop.x - camX);
     let screenY = Math.round(prop.y - camY);
 
-    // Aplicar estremecimiento sísmico / sacudida elástica si fue golpeado
     if (prop.shakeTimer > 0) {
       const shakeOffset = Math.sin(prop.shakeTimer * 50) * prop.shakeIntensity;
       screenX += Math.round(shakeOffset);
     }
 
-    // 1. Sombra Elíptica 2:1 Desacoplada
+    // Sombra Elíptica 2:1 Desacoplada
     ctx.save();
     ctx.fillStyle = '#0b0c14';
     ctx.globalAlpha = 0.38;
@@ -405,7 +391,6 @@ export class WorldEnvironment {
     ctx.fill();
     ctx.restore();
 
-    // 2. Renderizar Prop
     let imgKey = 'TREE';
     if (prop.type === 'ROCK') imgKey = 'ROCK';
     if (prop.type === 'MONOLITH') imgKey = 'MONOLITH';
@@ -416,7 +401,6 @@ export class WorldEnvironment {
     ctx.globalAlpha = prop.alpha;
     ctx.translate(screenX, screenY);
 
-    // Viento en la copa de los árboles
     if (prop.stiffness > 0) {
       const windSkew = Math.sin(this.windTime + prop.phase) * prop.stiffness;
       ctx.transform(1, 0, windSkew, 1, 0, 0);
@@ -431,7 +415,7 @@ export class WorldEnvironment {
         prop.height
       );
 
-      // Flash blanco al ser golpeado (pixel-25d-collision-physics-specialist)
+      // Flash de Impacto
       if (prop.hitFlashTimer > 0) {
         ctx.globalCompositeOperation = 'lighter';
         ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
@@ -443,10 +427,10 @@ export class WorldEnvironment {
         );
       }
 
-      // Resplandor Rúnico en el Monolito al ser golpeado
+      // Resplandor Rúnico
       if (prop.type === 'MONOLITH' && prop.runeGlowTimer > 0) {
         ctx.globalCompositeOperation = 'lighter';
-        ctx.fillStyle = `rgba(56, 189, 248, ${(prop.runeGlowTimer / 0.6) * 0.6})`;
+        ctx.fillStyle = `rgba(56, 189, 248, ${(prop.runeGlowTimer / 0.65) * 0.65})`;
         ctx.beginPath();
         ctx.arc(0, -prop.height * 0.5, 45, 0, Math.PI * 2);
         ctx.fill();
@@ -461,7 +445,6 @@ export class WorldEnvironment {
     ctx.restore();
   }
 
-  // Renderizar las partículas ambientales desprendidas por los golpes a los props
   public renderParticles(ctx: CanvasRenderingContext2D, camX: number, camY: number): void {
     for (const p of this.propParticles) {
       if (p.active) {
