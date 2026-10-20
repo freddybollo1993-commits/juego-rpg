@@ -362,6 +362,7 @@ export class Hero {
   }
 
   private spawnAfterImage(): void {
+    if (!this.isDashing) return; // Solo durante el Dash
     for (const ghost of this.afterImages) {
       if (!ghost.active) {
         ghost.active = true;
@@ -372,7 +373,7 @@ export class Hero {
         ghost.frameIndex = this.currentFrame;
         ghost.scaleX = this.scaleX;
         ghost.scaleY = this.scaleY;
-        ghost.alpha = 0.42;
+        ghost.alpha = 0.28;
         break;
       }
     }
@@ -394,7 +395,7 @@ export class Hero {
 
     for (const ghost of this.afterImages) {
       if (ghost.active) {
-        ghost.alpha -= dt * 2.8;
+        ghost.alpha -= dt * 4.5; // Desvanecimiento rápido y elegante
         if (ghost.alpha <= 0) {
           ghost.active = false;
         }

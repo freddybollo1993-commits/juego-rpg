@@ -329,7 +329,7 @@ export class WorldEnvironment {
   }
 
   public renderTerrain(ctx: CanvasRenderingContext2D, camX: number, camY: number, zoom: number, viewW: number, viewH: number): void {
-    const tileGrass = AssetLoader.getImage('TILE_GRASS');
+    const tileSeamless = AssetLoader.getImage('TILE_GRASS_SEAMLESS');
     const tileCobble = AssetLoader.getImage('TILE_COBBLE');
     const tileDirt = AssetLoader.getImage('TILE_DIRT');
 
@@ -350,22 +350,21 @@ export class WorldEnvironment {
         }
 
         const dist = Math.max(Math.abs(gx), Math.abs(gy));
-        let tileImg: HTMLImageElement | HTMLCanvasElement | undefined = tileGrass;
+        let tileImg: HTMLImageElement | HTMLCanvasElement | undefined = tileSeamless;
 
         if (dist <= 2) {
           tileImg = tileCobble || this.fallbackStoneCanvas;
         } else if (dist <= 4 && (gx === 0 || gy === 0 || Math.abs(gx) === Math.abs(gy))) {
           tileImg = tileDirt || this.fallbackGrassCanvas;
         } else {
-          tileImg = tileGrass || this.fallbackGrassCanvas;
+          tileImg = tileSeamless || this.fallbackGrassCanvas;
         }
 
         if (tileImg) {
           const drawW = WorldEnvironment.TILE_W;
-          const drawH = WorldEnvironment.TILE_W;
-          ctx.drawImage(tileImg, screenX - halfW, screenY - halfH, drawW, drawH);
-        } else {
-          ctx.drawImage(this.fallbackGrassCanvas, screenX - halfW, screenY - halfH, WorldEnvironment.TILE_W, 48);
+          const drawH = dist <= 4 ? 48 : WorldEnvironment.TILE_H;
+          const offsetY = dist <= 4 ? halfH : 0;
+          ctx.drawImage(tileImg, screenX - halfW, screenY - offsetY, drawW, drawH);
         }
       }
     }

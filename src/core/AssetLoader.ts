@@ -17,6 +17,7 @@ export class AssetLoader {
     MONOLITH: 'game_assets/props/runic_monolith.png',
     // Bloques de Terreno
     TILE_GRASS: 'game_assets/tiles/tile_grass.png',
+    TILE_GRASS_SEAMLESS: 'game_assets/tiles/tile_grass_seamless.png',
     TILE_COBBLE: 'game_assets/tiles/tile_cobblestone.png',
     TILE_DIRT: 'game_assets/tiles/tile_dirt_edge.png'
   };
