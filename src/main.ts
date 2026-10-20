@@ -25,7 +25,6 @@ class GameEngine {
   private hud: DebugHUD;
 
   private lastTimestamp: number = 0;
-  private assetsLoaded: boolean = false;
 
   constructor() {
     const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
@@ -35,9 +34,9 @@ class GameEngine {
     this.camera = new Camera(0, 0);
     this.input = new InputManager(canvas);
 
-    // Entidades del Juego
+    // Entidades
     this.hero = new Hero(0, 80);
-    this.wolf = new ShadowWolf(140, 20);
+    this.wolf = new ShadowWolf(140, 30);
     this.golem = new Golem(-130, -30);
     this.environment = new WorldEnvironment();
     this.hud = new DebugHUD(this.hero, this.input);
@@ -46,12 +45,15 @@ class GameEngine {
   }
 
   private async init(): Promise<void> {
-    // Carga asíncrona de texturas y spritesheets
-    await AssetLoader.loadAll();
-    this.assetsLoaded = true;
-
-    // Iniciar loop principal
+    // Iniciar loop de renderizado inmediatamente (los fallbacks procedurales se muestran mientras cargan las texturas)
     requestAnimationFrame((t) => this.loop(t));
+
+    // Cargar texturas y spritesheets en segundo plano
+    try {
+      await AssetLoader.loadAll();
+    } catch (e) {
+      console.warn('Carga en segundo plano continuó con fallbacks', e);
+    }
   }
 
   private loop(timestamp: number): void {
@@ -59,8 +61,12 @@ class GameEngine {
     const dt = Math.min((timestamp - this.lastTimestamp) / 1000, 0.1);
     this.lastTimestamp = timestamp;
 
-    this.update(dt);
-    this.render();
+    try {
+      this.update(dt);
+      this.render();
+    } catch (err) {
+      console.error('Error en loop principal:', err);
+    }
 
     requestAnimationFrame((t) => this.loop(t));
   }
@@ -74,12 +80,49 @@ class GameEngine {
     this.golem.update(dt, this.hero);
     this.environment.update(dt, this.hero);
 
+    // Separación física suave de masas entre entidades (pixel-25d-collision-physics-specialist)
+    this.resolveEntitySeparation(this.hero, this.wolf);
+    this.resolveEntitySeparation(this.hero, this.golem);
+    this.resolveEntitySeparation(this.wolf, this.golem);
+
     // Cámara suave con seguimiento dinámico
     this.camera.follow(this.hero.x, this.hero.y);
     this.camera.update();
 
     // Actualizar HUD
     this.hud.update(this.hero);
+  }
+
+  // Resolución elástica de colisión entre entidades (Soft Collision)
+  private resolveEntitySeparation(
+    a: { x: number; y: number; colRadiusX?: number; colRadiusY?: number },
+    b: { x: number; y: number; colRadiusX?: number; colRadiusY?: number }
+  ): void {
+    const rAx = a.colRadiusX || 12;
+    const rAy = a.colRadiusY || 6;
+    const rBx = b.colRadiusX || 16;
+    const rBy = b.colRadiusY || 8;
+
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    const combinedRx = rAx + rBx;
+    const combinedRy = rAy + rBy;
+
+    const nx = dx / combinedRx;
+    const ny = (dy * 2) / combinedRx;
+    const distSq = nx * nx + ny * ny;
+
+    if (distSq < 1.0 && distSq > 0.0001) {
+      const dist = Math.sqrt(distSq);
+      const overlap = 1.0 - dist;
+      const pushX = (nx / dist) * overlap * combinedRx * 0.5;
+      const pushY = (ny / dist) * overlap * combinedRy * 0.25;
+
+      a.x += pushX;
+      a.y += pushY;
+      b.x -= pushX;
+      b.y -= pushY;
+    }
   }
 
   private render(): void {
@@ -94,13 +137,12 @@ class GameEngine {
     ctx.translate(Math.floor(this.display.width / 2), Math.floor(this.display.height / 2));
     ctx.scale(zoom, zoom);
 
-    // 1. RENDERIZAR TERRENO MODULAR 2:1
+    // 1. TERRENO MODULAR 2:1
     const viewW = this.display.width / (2 * zoom);
     const viewH = this.display.height / (2 * zoom);
     this.environment.renderTerrain(ctx, camX, camY, zoom, viewW, viewH);
 
-    // 2. DEPTH SORTING UNIFICADO (Z-Ordering dinámico a 60 FPS)
-    // zIndex = (gridX + gridY) * 1000 + (z * 10) + layerOffset
+    // 2. DEPTH SORTING UNIFICADO (Z-Ordering 2:1)
     const renderQueue: RenderableEntity[] = [];
 
     // Props ambientales
@@ -133,7 +175,6 @@ class GameEngine {
     // Ordenar por Z-Index ascendente
     renderQueue.sort((a, b) => a.zIndex - b.zIndex);
 
-    // Dibujar todos los elementos ordenados
     for (const item of renderQueue) {
       item.render(ctx, camX, camY);
     }
@@ -151,7 +192,6 @@ class GameEngine {
     const { originX, originY, currX, currY } = this.input.joystickPos;
 
     ctx.save();
-    // Base exterior translúcida
     ctx.beginPath();
     ctx.arc(originX, originY, 45, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(56, 189, 248, 0.16)';
@@ -160,7 +200,6 @@ class GameEngine {
     ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
     ctx.stroke();
 
-    // Pomo interior
     const maxRadius = 45;
     const dx = currX - originX;
     const dy = currY - originY;
