@@ -7,6 +7,8 @@ export type GolemState = 'IDLE' | 'STOMP_WALK' | 'GROUND_SLAM';
 export class Golem {
   public x: number;
   public y: number;
+  public vx: number = 0;
+  public vy: number = 0;
   public colRadiusX: number = 32;
   public colRadiusY: number = 16;
 
@@ -26,6 +28,11 @@ export class Golem {
   }
 
   public update(dt: number, hero: Hero): void {
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.vx *= 0.85;
+    this.vy *= 0.85;
+
     this.animTimer += dt;
     const dx = hero.x - this.x;
     const dy = (hero.y - this.y) * 2;

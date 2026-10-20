@@ -1,12 +1,10 @@
 export interface InputState {
-  // Vector de movimiento continuo normalizado [-1 a 1]
   dx: number;
   dy: number;
   isMoving: boolean;
   isRun: boolean;
   isDash: boolean;
   isAttack: boolean;
-  // Ángulo en radianes
   angle: number;
 }
 
@@ -21,6 +19,10 @@ export class InputManager {
     isAttack: false,
     angle: 0
   };
+
+  // Triggers garantizados para controles móviles y ratón
+  private triggerDash: boolean = false;
+  private triggerAttack: boolean = false;
 
   // Touch joystick flotante
   private touchOrigin: { x: number; y: number } | null = null;
@@ -38,9 +40,23 @@ export class InputManager {
     this.setupTouch(canvas);
   }
 
+  public requestDash(): void {
+    this.triggerDash = true;
+  }
+
+  public requestAttack(): void {
+    this.triggerAttack = true;
+  }
+
   private setupKeyboard(): void {
     window.addEventListener('keydown', (e) => {
       this.keys.add(e.code);
+      if (e.code === 'Space') {
+        this.triggerDash = true;
+      }
+      if (e.code === 'KeyJ' || e.code === 'KeyZ') {
+        this.triggerAttack = true;
+      }
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
         e.preventDefault();
       }
@@ -56,8 +72,8 @@ export class InputManager {
       'touchstart',
       (e) => {
         const touch = e.touches[0];
-        // Si toca la mitad izquierda de la pantalla, activa joystick flotante
-        if (touch.clientX < window.innerWidth * 0.6) {
+        // Mitad izquierda: Joystick dinámico
+        if (touch.clientX < window.innerWidth * 0.55) {
           this.touchOrigin = { x: touch.clientX, y: touch.clientY };
           this.touchCurrent = { x: touch.clientX, y: touch.clientY };
           this.joystickActive = true;
@@ -66,9 +82,8 @@ export class InputManager {
           this.joystickPos.currX = touch.clientX;
           this.joystickPos.currY = touch.clientY;
         } else {
-          // Mitad derecha: toque para atacar o esquivar
-          this.state.isAttack = true;
-          setTimeout(() => (this.state.isAttack = false), 200);
+          // Toque en mitad derecha de la pantalla: Atacar
+          this.triggerAttack = true;
         }
       },
       { passive: false }
@@ -97,8 +112,7 @@ export class InputManager {
     // Clic de ratón para atacar
     canvas.addEventListener('mousedown', (e) => {
       if (e.button === 0) {
-        this.state.isAttack = true;
-        setTimeout(() => (this.state.isAttack = false), 200);
+        this.triggerAttack = true;
       }
     });
   }
@@ -126,7 +140,7 @@ export class InputManager {
       }
     }
 
-    // Normalización Vectorial Isométrica estricta (pixel-25d-kinematics-animator)
+    // Normalización Vectorial Isométrica 2:1
     const length = Math.hypot(rawDx, rawDy);
     if (length > 0) {
       this.state.dx = rawDx / length;
@@ -140,10 +154,12 @@ export class InputManager {
     }
 
     this.state.isRun = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
-    this.state.isDash = this.keys.has('Space');
-    if (this.keys.has('KeyJ') || this.keys.has('KeyZ')) {
-      this.state.isAttack = true;
-      setTimeout(() => (this.state.isAttack = false), 200);
-    }
+
+    // Procesar y consumir triggers de Dash y Ataque garantizados
+    this.state.isDash = this.keys.has('Space') || this.triggerDash;
+    this.state.isAttack = this.triggerAttack || this.keys.has('KeyJ') || this.keys.has('KeyZ');
+
+    this.triggerDash = false;
+    this.triggerAttack = false;
   }
 }

@@ -56,33 +56,32 @@ export class DebugHUD {
     this.dirBadge = this.container.querySelector('#hud-dir') as HTMLSpanElement;
     this.juiceBadge = this.container.querySelector('#hud-juice') as HTMLSpanElement;
 
-    // Vincular botones móviles
+    // Conectar botones móviles a triggers persistentes
     const btnDash = this.container.querySelector('#btn-dash') as HTMLButtonElement;
     const btnAttack = this.container.querySelector('#btn-attack') as HTMLButtonElement;
 
     btnDash?.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      input.state.isDash = true;
-      setTimeout(() => (input.state.isDash = false), 200);
+      e.stopPropagation();
+      input.requestDash();
     });
-    btnDash?.addEventListener('click', () => {
-      input.state.isDash = true;
-      setTimeout(() => (input.state.isDash = false), 200);
+    btnDash?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      input.requestDash();
     });
 
     btnAttack?.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      input.state.isAttack = true;
-      setTimeout(() => (input.state.isAttack = false), 200);
+      e.stopPropagation();
+      input.requestAttack();
     });
-    btnAttack?.addEventListener('click', () => {
-      input.state.isAttack = true;
-      setTimeout(() => (input.state.isAttack = false), 200);
+    btnAttack?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      input.requestAttack();
     });
   }
 
   public update(hero: Hero): void {
-    // Cálculo de FPS
     this.frameCount++;
     const now = performance.now();
     if (now - this.lastTime >= 500) {
@@ -93,9 +92,8 @@ export class DebugHUD {
       this.fpsCounter.style.color = this.currentFps >= 55 ? '#4ade80' : '#facc15';
     }
 
-    // Actualizar Badges
     this.stateBadge.textContent = hero.fsmState;
-    this.dirBadge.textContent = hero.direction;
+    this.dirBadge.textContent = `${hero.direction} (${hero.facingX > 0 ? '▶' : '◀'})`;
     this.juiceBadge.textContent = `${hero.scaleX.toFixed(2)}x / ${hero.scaleY.toFixed(2)}x`;
   }
 }

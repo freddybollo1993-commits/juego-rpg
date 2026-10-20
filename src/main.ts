@@ -25,6 +25,7 @@ class GameEngine {
   private hud: DebugHUD;
 
   private lastTimestamp: number = 0;
+  private attackHitProcessed: boolean = false;
 
   constructor() {
     const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
@@ -34,7 +35,6 @@ class GameEngine {
     this.camera = new Camera(0, 0);
     this.input = new InputManager(canvas);
 
-    // Entidades
     this.hero = new Hero(0, 80);
     this.wolf = new ShadowWolf(140, 30);
     this.golem = new Golem(-130, -30);
@@ -45,14 +45,12 @@ class GameEngine {
   }
 
   private async init(): Promise<void> {
-    // Iniciar loop de renderizado inmediatamente (los fallbacks procedurales se muestran mientras cargan las texturas)
     requestAnimationFrame((t) => this.loop(t));
 
-    // Cargar texturas y spritesheets en segundo plano
     try {
       await AssetLoader.loadAll();
     } catch (e) {
-      console.warn('Carga en segundo plano continuó con fallbacks', e);
+      console.warn('AssetLoader background init:', e);
     }
   }
 
@@ -65,7 +63,7 @@ class GameEngine {
       this.update(dt);
       this.render();
     } catch (err) {
-      console.error('Error en loop principal:', err);
+      console.error('Error en loop:', err);
     }
 
     requestAnimationFrame((t) => this.loop(t));
@@ -80,12 +78,22 @@ class GameEngine {
     this.golem.update(dt, this.hero);
     this.environment.update(dt, this.hero);
 
-    // Separación física suave de masas entre entidades (pixel-25d-collision-physics-specialist)
+    // Cinemática de Combate: Hitbox Activa con Eje Z (pixel-25d-collision-physics-specialist)
+    if (this.hero.attackHitboxActive) {
+      if (!this.attackHitProcessed) {
+        this.processHeroAttackHit();
+        this.attackHitProcessed = true;
+      }
+    } else {
+      this.attackHitProcessed = false;
+    }
+
+    // Separación física suave de masas entre entidades
     this.resolveEntitySeparation(this.hero, this.wolf);
     this.resolveEntitySeparation(this.hero, this.golem);
     this.resolveEntitySeparation(this.wolf, this.golem);
 
-    // Cámara suave con seguimiento dinámico
+    // Cámara suave
     this.camera.follow(this.hero.x, this.hero.y);
     this.camera.update();
 
@@ -93,13 +101,44 @@ class GameEngine {
     this.hud.update(this.hero);
   }
 
-  // Resolución elástica de colisión entre entidades (Soft Collision)
+  // Comprobación de Hitbox de Espada con Knockback y Hit-Stop
+  private processHeroAttackHit(): void {
+    const attackRange = 55;
+    const targets = [this.wolf, this.golem];
+
+    for (const target of targets) {
+      const dx = target.x - this.hero.x;
+      const dy = target.y - this.hero.y;
+      const dist = Math.hypot(dx, dy * 2);
+
+      // Verificar si el objetivo está en el arco frontal del ataque
+      const inFront = (this.hero.facingX > 0 && dx > -10) || (this.hero.facingX < 0 && dx < 10);
+
+      if (dist < attackRange && inFront) {
+        // Impacto exitoso
+        target.health = Math.max(0, target.health - 25);
+        if (target.health <= 0) {
+          target.health = target.maxHealth; // Respawn instantáneo
+        }
+
+        // Knockback elástico
+        const len = Math.max(1, Math.hypot(dx, dy));
+        target.vx = (dx / len) * 220;
+        target.vy = (dy / len) * 110;
+
+        // Hit-Stop (Micro-congelación para peso físico del golpe)
+        this.hero.hitStopFrames = 3;
+        this.hero.spawnDust(4);
+      }
+    }
+  }
+
   private resolveEntitySeparation(
     a: { x: number; y: number; colRadiusX?: number; colRadiusY?: number },
     b: { x: number; y: number; colRadiusX?: number; colRadiusY?: number }
   ): void {
-    const rAx = a.colRadiusX || 12;
-    const rAy = a.colRadiusY || 6;
+    const rAx = a.colRadiusX || 9;
+    const rAy = a.colRadiusY || 4.5;
     const rBx = b.colRadiusX || 16;
     const rBy = b.colRadiusY || 8;
 
@@ -145,7 +184,7 @@ class GameEngine {
     // 2. DEPTH SORTING UNIFICADO (Z-Ordering 2:1)
     const renderQueue: RenderableEntity[] = [];
 
-    // Props ambientales
+    // Props
     for (const prop of this.environment.props) {
       const zIndex = Math.floor((prop.x / 32 + prop.y / 16) * 1000 + 4);
       renderQueue.push({
@@ -154,25 +193,24 @@ class GameEngine {
       });
     }
 
-    // Criatura: Lobo de Sombra
+    // Lobo
     renderQueue.push({
       zIndex: this.wolf.getZIndex(),
       render: (c, cx, cy) => this.wolf.render(c, cx, cy)
     });
 
-    // Criatura: Gólem Rúnico
+    // Gólem
     renderQueue.push({
       zIndex: this.golem.getZIndex(),
       render: (c, cx, cy) => this.golem.render(c, cx, cy)
     });
 
-    // Protagonista: Héroe
+    // Héroe
     renderQueue.push({
       zIndex: this.hero.getZIndex(),
       render: (c, cx, cy) => this.hero.render(c, cx, cy)
     });
 
-    // Ordenar por Z-Index ascendente
     renderQueue.sort((a, b) => a.zIndex - b.zIndex);
 
     for (const item of renderQueue) {
@@ -181,7 +219,7 @@ class GameEngine {
 
     ctx.restore();
 
-    // 3. JOYSTICK VIRTUAL TÁCTIL (Móvil)
+    // 3. JOYSTICK VIRTUAL TÁCTIL
     if (this.input.joystickActive) {
       this.renderVirtualJoystick();
     }
