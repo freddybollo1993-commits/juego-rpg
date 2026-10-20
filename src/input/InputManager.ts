@@ -24,7 +24,8 @@ export class InputManager {
   private triggerDash: boolean = false;
   private triggerAttack: boolean = false;
 
-  // Touch joystick flotante
+  // Touch joystick flotante multi-touch con Touch ID
+  private joystickTouchId: number | null = null;
   private touchOrigin: { x: number; y: number } | null = null;
   private touchCurrent: { x: number; y: number } | null = null;
   public joystickActive: boolean = false;
@@ -71,19 +72,22 @@ export class InputManager {
     canvas.addEventListener(
       'touchstart',
       (e) => {
-        const touch = e.touches[0];
-        // Mitad izquierda: Joystick dinámico
-        if (touch.clientX < window.innerWidth * 0.55) {
-          this.touchOrigin = { x: touch.clientX, y: touch.clientY };
-          this.touchCurrent = { x: touch.clientX, y: touch.clientY };
-          this.joystickActive = true;
-          this.joystickPos.originX = touch.clientX;
-          this.joystickPos.originY = touch.clientY;
-          this.joystickPos.currX = touch.clientX;
-          this.joystickPos.currY = touch.clientY;
-        } else {
-          // Toque en mitad derecha de la pantalla: Atacar
-          this.triggerAttack = true;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          // Mitad izquierda de pantalla: Asignar Joystick táctil
+          if (touch.clientX < window.innerWidth * 0.55 && this.joystickTouchId === null) {
+            this.joystickTouchId = touch.identifier;
+            this.touchOrigin = { x: touch.clientX, y: touch.clientY };
+            this.touchCurrent = { x: touch.clientX, y: touch.clientY };
+            this.joystickActive = true;
+            this.joystickPos.originX = touch.clientX;
+            this.joystickPos.originY = touch.clientY;
+            this.joystickPos.currX = touch.clientX;
+            this.joystickPos.currY = touch.clientY;
+          } else if (touch.clientX >= window.innerWidth * 0.55) {
+            // Mitad derecha: Ataque táctil directo
+            this.triggerAttack = true;
+          }
         }
       },
       { passive: false }
@@ -92,27 +96,45 @@ export class InputManager {
     window.addEventListener(
       'touchmove',
       (e) => {
-        if (!this.touchOrigin) return;
-        const touch = e.touches[0];
-        this.touchCurrent = { x: touch.clientX, y: touch.clientY };
-        this.joystickPos.currX = touch.clientX;
-        this.joystickPos.currY = touch.clientY;
+        if (this.joystickTouchId === null) return;
+        for (let i = 0; i < e.touches.length; i++) {
+          const touch = e.touches[i];
+          if (touch.identifier === this.joystickTouchId) {
+            this.touchCurrent = { x: touch.clientX, y: touch.clientY };
+            this.joystickPos.currX = touch.clientX;
+            this.joystickPos.currY = touch.clientY;
+            break;
+          }
+        }
       },
       { passive: false }
     );
 
-    const touchEnd = () => {
-      this.touchOrigin = null;
-      this.touchCurrent = null;
-      this.joystickActive = false;
+    const onTouchEnd = (e: TouchEvent) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === this.joystickTouchId) {
+          this.joystickTouchId = null;
+          this.touchOrigin = null;
+          this.touchCurrent = null;
+          this.joystickActive = false;
+          break;
+        }
+      }
     };
-    window.addEventListener('touchend', touchEnd);
-    window.addEventListener('touchcancel', touchEnd);
 
-    // Clic de ratón para atacar
+    window.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('touchcancel', onTouchEnd);
+
+    // Ratón en PC: Clic izquierdo = Ataque, Clic derecho = Dash
+    canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+    });
+
     canvas.addEventListener('mousedown', (e) => {
       if (e.button === 0) {
         this.triggerAttack = true;
+      } else if (e.button === 2) {
+        this.triggerDash = true;
       }
     });
   }
@@ -127,14 +149,14 @@ export class InputManager {
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) rawDx -= 1;
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) rawDx += 1;
 
-    // Joystick táctil
+    // Joystick táctil multi-touch
     if (this.touchOrigin && this.touchCurrent) {
       const deltaX = this.touchCurrent.x - this.touchOrigin.x;
       const deltaY = this.touchCurrent.y - this.touchOrigin.y;
       const dist = Math.hypot(deltaX, deltaY);
       const maxRadius = 45;
 
-      if (dist > 8) {
+      if (dist > 6) {
         rawDx = deltaX / Math.max(dist, maxRadius);
         rawDy = deltaY / Math.max(dist, maxRadius);
       }
@@ -155,7 +177,7 @@ export class InputManager {
 
     this.state.isRun = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
 
-    // Procesar y consumir triggers de Dash y Ataque garantizados
+    // Consumir triggers de Dash y Ataque garantizados
     this.state.isDash = this.keys.has('Space') || this.triggerDash;
     this.state.isAttack = this.triggerAttack || this.keys.has('KeyJ') || this.keys.has('KeyZ');
 

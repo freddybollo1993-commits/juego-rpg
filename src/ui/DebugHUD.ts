@@ -36,9 +36,9 @@ export class DebugHUD {
           </div>
         </div>
         <div class="hud-controls-hint">
-          <span>⌨️ <b>WASD / Flechas:</b> Moverse</span>
-          <span>⚡ <b>Shift:</b> Correr | 💨 <b>Espacio:</b> Dash</span>
-          <span>⚔️ <b>J / Clic:</b> Ataque Combo</span>
+          <span>⌨️ <b>WASD / Flechas:</b> Moverse (360°)</span>
+          <span>⚡ <b>Shift:</b> Correr | 💨 <b>Espacio / Clic Der:</b> Dash Rápido</span>
+          <span>⚔️ <b>J / Clic Izq / Toque:</b> Combo 3 Golpes</span>
         </div>
       </div>
 
@@ -92,7 +92,12 @@ export class DebugHUD {
       this.fpsCounter.style.color = this.currentFps >= 55 ? '#4ade80' : '#facc15';
     }
 
-    const displayState = hero.fsmState === 'ATTACK' ? `ATK COMBO ${hero.comboStep}` : hero.fsmState;
+    let displayState = hero.fsmState as string;
+    if (hero.fsmState === 'ATTACK') {
+      displayState = `ATK COMBO ${hero.comboStep}/3`;
+    } else if (hero.fsmState === 'DASH') {
+      displayState = `DASH (Fase ${hero.dashFrame + 1}/4)`;
+    }
     this.stateBadge.textContent = displayState;
     this.dirBadge.textContent = `${hero.direction} (${hero.facingX > 0 ? '▶' : '◀'})`;
     this.juiceBadge.textContent = `${hero.scaleX.toFixed(2)}x / ${hero.scaleY.toFixed(2)}x`;
