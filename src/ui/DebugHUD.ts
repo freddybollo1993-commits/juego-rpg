@@ -92,7 +92,8 @@ export class DebugHUD {
       this.fpsCounter.style.color = this.currentFps >= 55 ? '#4ade80' : '#facc15';
     }
 
-    this.stateBadge.textContent = hero.fsmState;
+    const displayState = hero.fsmState === 'ATTACK' ? `ATK COMBO ${hero.comboStep}` : hero.fsmState;
+    this.stateBadge.textContent = displayState;
     this.dirBadge.textContent = `${hero.direction} (${hero.facingX > 0 ? '▶' : '◀'})`;
     this.juiceBadge.textContent = `${hero.scaleX.toFixed(2)}x / ${hero.scaleY.toFixed(2)}x`;
   }

@@ -4,7 +4,11 @@ export class AssetLoader {
   public static isLoaded: boolean = false;
 
   public static readonly ASSETS: Record<string, string> = {
-    // Personaje
+    // Personaje Maestro
+    HERO_LOCOMOTION: 'game_assets/characters/hero_locomotion.png',
+    HERO_DASH: 'game_assets/characters/hero_dash.png',
+    HERO_COMBAT: 'game_assets/characters/hero_combat_combo.png',
+    // Fallbacks previos
     HERO_IDLE_WALK: 'game_assets/characters/hero_idle_walk.png',
     HERO_RUN_DASH: 'game_assets/characters/hero_run_dash.png',
     HERO_ATTACK: 'game_assets/characters/hero_attack.png',
