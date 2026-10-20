@@ -301,22 +301,22 @@ export class Hero {
   }
 
   private updateAnimationFrames(dt: number): void {
-    this.animTimer += dt;
-
     if (this.fsmState === 'IDLE') {
+      this.animTimer += dt;
       const frameDuration = 0.22;
       this.currentFrame = Math.floor(this.animTimer / frameDuration) % 4;
-    } else if (this.fsmState === 'WALK') {
-      const frameDuration = 0.11;
-      this.currentFrame = Math.floor(this.animTimer / frameDuration) % 6;
+    } else if (this.fsmState === 'WALK' || this.fsmState === 'RUN') {
+      // Sincronización estricta de animSpeed con velocidad real para eliminar 'Moonwalking' (pixel-25d-master-animator)
+      const currentSpeed = Math.hypot(this.vx, this.vy);
+      const speedFactor = Math.max(0.5, currentSpeed / this.walkSpeed);
+      this.animTimer += dt * speedFactor;
+
+      const baseDuration = this.fsmState === 'RUN' ? 0.08 : 0.12;
+      this.currentFrame = Math.floor(this.animTimer / baseDuration) % 6;
+
+      // Partícula de polvo exactamente en el frame de contacto del pie (Contacto en frames 1 y 4)
       if (this.currentFrame === 1 || this.currentFrame === 4) {
-        if (Math.random() < 0.2) this.spawnDust(1);
-      }
-    } else if (this.fsmState === 'RUN') {
-      const frameDuration = 0.075;
-      this.currentFrame = Math.floor(this.animTimer / frameDuration) % 6;
-      if (this.currentFrame === 1 || this.currentFrame === 4) {
-        this.spawnDust(1);
+        if (Math.random() < 0.25) this.spawnDust(1);
       }
     } else if (this.fsmState === 'DASH') {
       this.currentFrame = 0;
