@@ -78,7 +78,7 @@ class GameEngine {
     this.golem.update(dt, this.hero);
     this.environment.update(dt, this.hero);
 
-    // Cinemática de Combate: Hitbox Activa con Eje Z (pixel-25d-collision-physics-specialist)
+    // Cinemática de Combate: Hitbox Activa con Criaturas y Elementos del Entorno
     if (this.hero.attackHitboxActive) {
       if (!this.attackHitProcessed) {
         this.processHeroAttackHit();
@@ -88,12 +88,12 @@ class GameEngine {
       this.attackHitProcessed = false;
     }
 
-    // Separación física suave de masas entre entidades
+    // Separación física suave de masas entre entidades (Soft Collision)
     this.resolveEntitySeparation(this.hero, this.wolf);
     this.resolveEntitySeparation(this.hero, this.golem);
     this.resolveEntitySeparation(this.wolf, this.golem);
 
-    // Cámara suave
+    // Cámara suave con seguimiento dinámico
     this.camera.follow(this.hero.x, this.hero.y);
     this.camera.update();
 
@@ -101,35 +101,43 @@ class GameEngine {
     this.hud.update(this.hero);
   }
 
-  // Comprobación de Hitbox de Espada con Knockback y Hit-Stop
+  // Comprobación de Hitbox contra Criaturas y Elementos del Entorno
   private processHeroAttackHit(): void {
     const attackRange = 55;
-    const targets = [this.wolf, this.golem];
+    let hitAnything = false;
 
+    // 1. Hitbox contra Criaturas (Lobo y Gólem)
+    const targets = [this.wolf, this.golem];
     for (const target of targets) {
       const dx = target.x - this.hero.x;
       const dy = target.y - this.hero.y;
       const dist = Math.hypot(dx, dy * 2);
 
-      // Verificar si el objetivo está en el arco frontal del ataque
       const inFront = (this.hero.facingX > 0 && dx > -10) || (this.hero.facingX < 0 && dx < 10);
 
       if (dist < attackRange && inFront) {
-        // Impacto exitoso
+        hitAnything = true;
         target.health = Math.max(0, target.health - 25);
         if (target.health <= 0) {
-          target.health = target.maxHealth; // Respawn instantáneo
+          target.health = target.maxHealth;
         }
 
-        // Knockback elástico
         const len = Math.max(1, Math.hypot(dx, dy));
         target.vx = (dx / len) * 220;
         target.vy = (dy / len) * 110;
-
-        // Hit-Stop (Micro-congelación para peso físico del golpe)
-        this.hero.hitStopFrames = 3;
-        this.hero.spawnDust(4);
       }
+    }
+
+    // 2. Hitbox contra Elementos del Entorno (Árboles, Rocas, Monolito)
+    const hitProp = this.environment.checkAttackHit(this.hero.x, this.hero.y, this.hero.facingX, attackRange);
+    if (hitProp) {
+      hitAnything = true;
+    }
+
+    // Feedback Físico: Hit-Stop
+    if (hitAnything) {
+      this.hero.hitStopFrames = 3;
+      this.hero.spawnDust(3);
     }
   }
 
@@ -217,9 +225,12 @@ class GameEngine {
       item.render(ctx, camX, camY);
     }
 
+    // 3. Renderizar Partículas de Impacto Ambiental (Hojas cayendo, Chispas, Destellos)
+    this.environment.renderParticles(ctx, camX, camY);
+
     ctx.restore();
 
-    // 3. JOYSTICK VIRTUAL TÁCTIL
+    // 4. JOYSTICK VIRTUAL TÁCTIL
     if (this.input.joystickActive) {
       this.renderVirtualJoystick();
     }
