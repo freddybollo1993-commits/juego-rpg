@@ -1,14 +1,14 @@
 // TileAtlas.ts - Hojas de suelo por bioma (con respaldo a color plano si falta la imagen)
 //
 // Cada bioma tiene UNA imagen: una fila por tipo de terreno y una columna por variante.
-// Las casillas son PLANAS (solo el rombo superior, sin grosor):
-//
-//   celda  : 80 x 40  (TILE_WIDTH x TILE_HEIGHT)
-//   ancla  : el centro del rombo esta en (cellW / 2, anchorY) dentro de la celda
+// Las casillas se ven DE FRENTE y son cuadrados perfectos: la celda mide TILE_SIZE x TILE_SIZE
+// (ver Metrics.ts) y se pinta de borde a borde, sin sombras ni luces en el contorno para que
+// las casillas vecinas se unan sin costuras.
 //
 // Para poner arte propio: reemplazar public/tiles/<bioma>.png respetando este diseno.
 
 import { ShadeLevel, buildShadedSheets } from './Shade';
+import { TILE_SIZE } from './Metrics';
 
 export interface TileAtlasTerrain {
   row: number;      // fila dentro de la hoja
@@ -19,7 +19,6 @@ export interface TileAtlasDef {
   image: string;
   cellW: number;
   cellH: number;
-  anchorY: number;
   terrains: Record<string, TileAtlasTerrain>;
 }
 
@@ -27,9 +26,8 @@ export interface TileAtlasDef {
 function sheet(biome: string, terrains: string[], variants: number = 3): TileAtlasDef {
   return {
     image: `/tiles/${biome}.png`,
-    cellW: 80,
-    cellH: 40,
-    anchorY: 20,
+    cellW: TILE_SIZE,
+    cellH: TILE_SIZE,
     terrains: Object.fromEntries(terrains.map((name, row) => [name, { row, variants }]))
   };
 }
@@ -73,7 +71,7 @@ export class TileAtlas {
   }
 
   /**
-   * Dibuja una casilla centrada en (px, py). `variantSeed` en [0, 1] elige una variante estable.
+   * Dibuja una casilla con su esquina superior izquierda en (px, py). `variantSeed` en [0, 1] elige una variante estable.
    * `shade` oscurece segun la niebla. Devuelve false si no hay sprite (el llamador usa el respaldo).
    */
   public draw(
@@ -94,7 +92,7 @@ export class TileAtlas {
     ctx.drawImage(
       sheets[shade],
       col * def.cellW, entry.row * def.cellH, def.cellW, def.cellH,
-      Math.round(px - def.cellW / 2), Math.round(py - def.anchorY), def.cellW, def.cellH
+      Math.round(px), Math.round(py), def.cellW, def.cellH
     );
     return true;
   }

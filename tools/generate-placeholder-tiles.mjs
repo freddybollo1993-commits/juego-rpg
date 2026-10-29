@@ -1,8 +1,8 @@
 // generate-placeholder-tiles.mjs
-// Escribe atlas PROVISIONALES de suelo PLANO para cada bioma en public/tiles/<bioma>.png.
+// Escribe atlas PROVISIONALES de suelo para cada bioma en public/tiles/<bioma>.png.
 // El diseno debe coincidir con TILE_ATLAS_MANIFEST (src/core/TileAtlas.ts):
-//   celdas de 80x40 (un rombo 2:1 sin grosor), una fila por terreno en el orden de abajo,
-//   3 columnas de variantes. Cualquier PNG se puede reemplazar por arte final sin tocar codigo
+//   celdas CUADRADAS de TILE_SIZE x TILE_SIZE (src/core/Metrics.ts), vistas de frente y pintadas
+//   de borde a borde, una fila por terreno en el orden de abajo, 3 columnas de variantes. Cualquier PNG se puede reemplazar por arte final sin tocar codigo
 //   mientras se respete ese diseno.
 //
 // Uso: node tools/generate-placeholder-tiles.mjs
@@ -12,14 +12,10 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const CELL_W = 80;
-const CELL_H = 40;
-const HALF_W = CELL_W / 2;
-const HALF_H = CELL_H / 2;
+const CELL = 64; // debe ser igual a TILE_SIZE en src/core/Metrics.ts
+const CELL_W = CELL;
+const CELL_H = CELL;
 const VARIANTS = 3;
-// El rombo se dibuja un poco mas grande que la celda para solaparse 1 px con sus vecinos:
-// asi no quedan lineas oscuras entre casillas (el piso se ve continuo).
-const OVERDRAW = 1.045;
 
 const hex = (h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255];
 // t(nombre, color base, color de motitas, detalle?)   detalle: { color, kind: 'lines' | 'dots' }
@@ -95,10 +91,6 @@ function renderAtlas(terrains) {
     for (let variant = 0; variant < VARIANTS; variant++) {
       for (let cy = 0; cy < CELL_H; cy++) {
         for (let cx = 0; cx < CELL_W; cx++) {
-          const dx = cx + 0.5 - HALF_W;
-          const dy = cy + 0.5 - HALF_H;
-          if (Math.abs(dx) / HALF_W + Math.abs(dy) / HALF_H > OVERDRAW) continue;
-
           // Textura suave: ruido por pixel, sin bordes ni luces marcadas en el contorno
           const noise = (hash(cx, cy, row * 7 + variant) - 0.5) * 14;
           let color = terrain.top.map((v) => v + noise);

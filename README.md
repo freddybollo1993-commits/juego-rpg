@@ -1,6 +1,6 @@
 # Isla Desconocida
 
-RPG de supervivencia y exploración **por turnos** en una isla desconocida. Pixel art isométrico 2.5D, ambiente sombrío.
+RPG de supervivencia y exploración **por turnos** en una isla desconocida. Pixel art visto de frente (cenital), cuadrícula de cuadrados perfectos, ambiente sombrío.
 
 ## Pilares del diseño
 - **Por turnos, el tiempo avanza con cada acción.** El reloj del mundo no corre solo: mover o esperar consumen minutos de juego (ver `TIME_COST` en [`src/core/TurnSystem.ts`](src/core/TurnSystem.ts)).
@@ -13,11 +13,11 @@ Base limpia, sin sistemas de combate, objetos ni misiones todavía. Lo que hay:
 
 | | |
 |---|---|
-| Mapa | **64×64** casillas por bioma |
-| Casilla | **80×40 px**, rombo 2:1 **plano** (sin grosor): el piso es un plano continuo que cubre toda la pantalla |
+| Mapa | **64×64** casillas por bioma (4096×4096 px) |
+| Casilla | **64×64 px**, un **cuadrado perfecto** visto de frente. El piso es un plano continuo que cubre toda la pantalla (el tamaño se cambia en [`src/core/Metrics.ts`](src/core/Metrics.ts)) |
 | Biomas | Orilla del Naufragio, Meseta Helada, Taiga, Ciénaga, Cañón, Abismo, Núcleo del Impacto |
 | Mundo | Terreno generado con ruido suave (mismo bioma = mismo mapa), escenografía decorativa, clima. La niebla de guerra **oscurece** el piso (visible / recordado / sin explorar) en vez de ocultarlo, así nunca hay vista vacía y cualquier toque cae sobre una casilla |
-| Personaje | ~0.9 casillas de alto (36 px), proporción tomada del juego de referencia |
+| Personaje | 28×42 px sobre una casilla de 64 |
 | Reloj | Día/noche por turnos, 10 min de juego por acción |
 | Guardado | Automático en cada turno (bioma, posición, turno, hora) |
 
@@ -48,14 +48,14 @@ Para abrir un bioma concreto: `http://localhost:5173/?biome=frost` (`beach`, `fr
 ## Estructura
 ```
 src/
-  core/      Game (bucle), IsometricGrid, TileAtlas, PropAtlas, DecorLayer, TurnSystem
+  core/      Game (bucle), TileGrid, Metrics, TileAtlas, PropAtlas, DecorLayer, TurnSystem
   entities/  Player
   systems/   DayNightCycle, WeatherSystem, SaveSystem  (+ __tests__)
   data/      regions (los 7 biomas)
   ui/        HUD
   audio/     SoundManager (pasos y ambiente procedural)
 public/
-  tiles/     Atlas de suelo por bioma (80×40 px por celda, casilla plana)
+  tiles/     Atlas de suelo por bioma (64×64 px por celda, un cuadrado por casilla)
   props/     Atlas de escenografía por bioma (64×80 px por celda)
 tools/       Generadores de arte provisional (node tools/generate-placeholder-*.mjs)
 blender/     Rig de Blender para renderizar criaturas en el ángulo exacto del juego
@@ -63,7 +63,7 @@ docs/        Biblia de arte, bestiario por bioma y plantilla guía de criaturas
 ```
 
 ## Arte
-- **Suelo y escenografía:** cada bioma tiene un PNG (`public/tiles/<bioma>.png`, `public/props/<bioma>.png`) con una fila por tipo y 3 variantes por fila. Para poner arte propio basta con reemplazar el PNG respetando el diseño de celdas (detalle en [`TileAtlas.ts`](src/core/TileAtlas.ts) y [`PropAtlas.ts`](src/core/PropAtlas.ts)). Si falta la imagen de un suelo se dibujan bloques de color plano; si falta la de escenografía, simplemente no aparece.
+- **Suelo y escenografía:** cada bioma tiene un PNG (`public/tiles/<bioma>.png`, `public/props/<bioma>.png`) con una fila por tipo y 3 variantes por fila. Para poner arte propio basta con reemplazar el PNG respetando el diseño de celdas (detalle en [`TileAtlas.ts`](src/core/TileAtlas.ts) y [`PropAtlas.ts`](src/core/PropAtlas.ts)). Si falta la imagen de un suelo se dibujan cuadrados de color plano; si falta la de escenografía, simplemente no aparece.
 - **Criaturas:** [`blender/`](blender/README.md) contiene un rig con la cámara fija (3/4, 18° de inclinación) y render con transparencia real.
 - **Referencias:** [`docs/creature-template-guide.png`](docs/creature-template-guide.png), [`docs/CREATURE_BESTIARY_BY_BIOME.md`](docs/CREATURE_BESTIARY_BY_BIOME.md) y [`docs/WORLD_ART_BIBLE_AND_ENVIRONMENT_DESIGN.md`](docs/WORLD_ART_BIBLE_AND_ENVIRONMENT_DESIGN.md). Son documentos de diseño de la visión anterior; úsalos como inspiración de ambientación y paleta.
 

@@ -15,21 +15,18 @@
   <div id="app-container">
     <canvas id="game-canvas"></canvas>
 
-    <!-- ── D-Pad isométrico 8 direcciones (esquina inferior izquierda) ── -->
+    <!-- ── D-Pad de 8 direcciones (esquina inferior izquierda) ── -->
     <div id="touch-controls-left" class="touch-controls-left">
-      <div class="iso-dpad" id="iso-dpad">
-        <!-- 3x3: TL=N(-1,-1) TC=NW(-1,0) TR=NE(0,-1)
-                  ML=W(-1,+1) MC=⏳       MR=E(+1,-1)
-                  BL=SW(0,+1) BC=SE(+1,0) BR=S(+1,+1) -->
-        <button class="iso-btn iso-btn-n"    id="btn-iso-n"    title="Norte (-1,-1)">⬆</button>
-        <button class="iso-btn iso-btn-nw"   id="btn-iso-nw"   title="Noroeste (-1,0)">↖</button>
-        <button class="iso-btn iso-btn-ne"   id="btn-iso-ne"   title="Noreste (0,-1)">↗</button>
-        <button class="iso-btn iso-btn-w"    id="btn-iso-w"    title="Oeste (-1,+1)">⬅</button>
-        <button class="iso-btn iso-btn-wait" id="btn-iso-wait" title="Esperar turno">⏳</button>
-        <button class="iso-btn iso-btn-e"    id="btn-iso-e"    title="Este (+1,-1)">➡</button>
-        <button class="iso-btn iso-btn-sw"   id="btn-iso-sw"   title="Suroeste (0,+1)">↙</button>
-        <button class="iso-btn iso-btn-se"   id="btn-iso-se"   title="Sureste (+1,0)">↘</button>
-        <button class="iso-btn iso-btn-s"    id="btn-iso-s"    title="Sur (+1,+1)">⬇</button>
+      <div class="dpad" id="dpad">
+        <button class="dpad-btn" id="btn-dpad-ul"    title="Arriba-izquierda">↖</button>
+        <button class="dpad-btn" id="btn-dpad-up"    title="Arriba">⬆</button>
+        <button class="dpad-btn" id="btn-dpad-ur"    title="Arriba-derecha">↗</button>
+        <button class="dpad-btn" id="btn-dpad-left"  title="Izquierda">⬅</button>
+        <button class="dpad-btn dpad-wait" id="btn-dpad-wait" title="Esperar turno">⏳</button>
+        <button class="dpad-btn" id="btn-dpad-right" title="Derecha">➡</button>
+        <button class="dpad-btn" id="btn-dpad-dl"    title="Abajo-izquierda">↙</button>
+        <button class="dpad-btn" id="btn-dpad-down"  title="Abajo">⬇</button>
+        <button class="dpad-btn" id="btn-dpad-dr"    title="Abajo-derecha">↘</button>
       </div>
     </div>
 

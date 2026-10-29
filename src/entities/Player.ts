@@ -1,12 +1,12 @@
-// Player.ts - El naufrago. Se mueve casilla a casilla; x/y es la posicion visual (suavizada)
-// y gx/gy la posicion logica en la cuadricula.
+// Player.ts - El naufrago. Se mueve casilla a casilla; x/y es la posicion visual (suavizada, en
+// los pies) y gx/gy la posicion logica en la cuadricula.
 
-import { IsometricGrid } from '../core/IsometricGrid';
+import { TileGrid } from '../core/TileGrid';
 
 export type Facing = 'left' | 'right' | 'up' | 'down';
 
-/** El sprite se disena a 32x48 y se dibuja a esta escala: el personaje mide ~0.9 casillas de alto (36 px de 40) */
-const PLAYER_SCALE = 0.75;
+/** El sprite se disena a 32x48 y se dibuja a esta escala: 28x42 px sobre una casilla de 64 */
+const PLAYER_SCALE = 0.875;
 
 export class Player {
   public x: number = 0;
@@ -24,7 +24,7 @@ export class Player {
   public placeAt(gx: number, gy: number) {
     this.gx = gx;
     this.gy = gy;
-    const p = IsometricGrid.gridToScreen(gx, gy);
+    const p = TileGrid.tileFoot(gx, gy);
     this.x = this.targetX = p.x;
     this.y = this.targetY = p.y;
   }
@@ -33,7 +33,7 @@ export class Player {
   public stepTo(gx: number, gy: number) {
     this.gx = gx;
     this.gy = gy;
-    const p = IsometricGrid.gridToScreen(gx, gy);
+    const p = TileGrid.tileFoot(gx, gy);
     this.targetX = p.x;
     this.targetY = p.y;
   }
@@ -46,11 +46,11 @@ export class Player {
   }
 
   public setFacingFromStep(dx: number, dy: number) {
-    // Ejes isometricos: (-1,0)=NO (0,-1)=NE (+1,0)=SE (0,+1)=SO
-    if (dx < 0 && dy <= 0) this.facing = 'up';
-    else if (dx >= 0 && dy < 0) this.facing = 'right';
-    else if (dx > 0 && dy >= 0) this.facing = 'down';
-    else if (dx <= 0 && dy > 0) this.facing = 'left';
+    // En diagonal gana el eje horizontal (es el que cambia el dibujo)
+    if (dx < 0) this.facing = 'left';
+    else if (dx > 0) this.facing = 'right';
+    else if (dy < 0) this.facing = 'up';
+    else if (dy > 0) this.facing = 'down';
   }
 
   public draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {

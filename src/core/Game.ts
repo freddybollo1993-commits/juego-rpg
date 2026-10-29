@@ -1,4 +1,4 @@
-// Game.ts - Bucle principal. Mundo base: mapa isometrico por turnos, niebla de guerra,
+// Game.ts - Bucle principal. Mundo base: mapa visto de frente por turnos, niebla de guerra,
 // oscuridad, clima y escenografia. Cada accion del jugador avanza el reloj del mundo.
 
 import { Player } from '../entities/Player';
@@ -7,22 +7,22 @@ import { WeatherSystem } from '../systems/WeatherSystem';
 import { SaveSystem } from '../systems/SaveSystem';
 import { dayNightCycle } from '../systems/DayNightCycle';
 import { HUD } from '../ui/HUD';
-import { IsometricGrid } from './IsometricGrid';
+import { TileGrid } from './TileGrid';
+import { TILE_SIZE } from './Metrics';
 import { TurnSystem } from './TurnSystem';
 import { tileAtlas } from './TileAtlas';
 import { propAtlas } from './PropAtlas';
 import { DecorLayer } from './DecorLayer';
 import { soundManager } from '../audio/SoundManager';
 
-const SIGHT_RADIUS = 5; // casillas que el jugador ve a su alrededor
-// Un circulo de 5 casillas en el piso isometrico se ve como una elipse 2:1 de este semieje horizontal
-// (0.707 * radio * ancho de casilla); el halo de luz se queda un poco por dentro para que se funda
-// con la niebla en vez de cortarse.
-const LIGHT_RADIUS_X = Math.round(0.707 * SIGHT_RADIUS * IsometricGrid.TILE_WIDTH * 0.95);
+const SIGHT_RADIUS = 4; // casillas que el jugador ve a su alrededor
+// El halo de luz se queda un poco por dentro del radio de vision para que se funda con la niebla
+// en vez de cortarse.
+const LIGHT_RADIUS_PX = Math.round(SIGHT_RADIUS * TILE_SIZE * 0.95);
 const BACKGROUND = '#05070b'; // mas alla del borde exterior del piso: oscuridad total
 
 export class Game {
-  public grid: IsometricGrid = new IsometricGrid();
+  public grid: TileGrid = new TileGrid();
   public turnSystem: TurnSystem = new TurnSystem(dayNightCycle);
   public player: Player = new Player();
   public decor: DecorLayer = new DecorLayer();
@@ -147,7 +147,7 @@ export class Game {
     const scaleY = this.canvas.height / rect.height;
     const worldX = (clientX - rect.left) * scaleX + this.cameraX;
     const worldY = (clientY - rect.top) * scaleY + this.cameraY;
-    return IsometricGrid.screenToGrid(worldX, worldY);
+    return TileGrid.screenToGrid(worldX, worldY);
   }
 
   public handleCanvasClick(clientX: number, clientY: number) {
@@ -243,17 +243,14 @@ export class Game {
 
     const px = this.player.x - this.cameraX;
     const py = this.player.y - this.player.height / 2 - this.cameraY;
-    const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, LIGHT_RADIUS_X);
+    const grad = ctx.createRadialGradient(px, py, 10, px, py, LIGHT_RADIUS_PX);
     grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
     grad.addColorStop(0.5, 'rgba(0, 0, 0, 0)');
     grad.addColorStop(1, `rgba(5, 5, 12, ${totalDarkness})`);
 
     ctx.save();
-    // Elipse 2:1 (el piso isometrico): se aplasta el eje vertical y se cubre toda la pantalla
-    ctx.translate(px, py);
-    ctx.scale(1, 0.5);
     ctx.fillStyle = grad;
-    ctx.fillRect(-px, -py * 2, width, height * 2);
+    ctx.fillRect(0, 0, width, height);
     ctx.restore();
   }
 

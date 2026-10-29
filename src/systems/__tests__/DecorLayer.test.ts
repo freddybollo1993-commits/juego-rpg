@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { IsometricGrid } from '../../core/IsometricGrid';
+import { TileGrid } from '../../core/TileGrid';
 import { DecorLayer, DECOR_RULES } from '../../core/DecorLayer';
 import { PROP_ATLAS_MANIFEST } from '../../core/PropAtlas';
 import { REGIONS_DATA } from '../../data/regions';
 
 function buildGrid(regionId: string) {
-  const grid = new IsometricGrid();
+  const grid = new TileGrid();
   grid.generateForRegion(REGIONS_DATA[regionId]);
   return grid;
 }

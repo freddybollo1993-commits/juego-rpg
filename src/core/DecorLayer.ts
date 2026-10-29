@@ -4,7 +4,7 @@
 // is deterministic (same region -> same layout) and skips the player's start, chokepoints,
 // impassable tiles and any tile already claimed by a gameplay object/NPC/enemy.
 
-import { IsometricGrid } from './IsometricGrid';
+import { TileGrid } from './TileGrid';
 import { propAtlas } from './PropAtlas';
 import { shadeForVisibility } from './Shade';
 import { RegionData } from '../data/regions';
@@ -70,7 +70,7 @@ export interface DecorProp {
   gy: number;
   kind: string;
   variant: number; // 0..1 seed for the sprite variant
-  x: number;       // screen-space base position (tile centre)
+  x: number;       // donde pisa el prop (centro horizontal de su casilla, cerca del borde inferior)
   y: number;
 }
 
@@ -96,7 +96,7 @@ export class DecorLayer {
    * @param keepClear tiles (and their 8 neighbours) that must stay free of props
    */
   public generate(
-    grid: IsometricGrid,
+    grid: TileGrid,
     region: RegionData,
     blocked: Set<string>,
     keepClear: { gx: number; gy: number }[]
@@ -119,7 +119,7 @@ export class DecorLayer {
           if (rule.terrains && !rule.terrains.includes(tile.terrainType)) continue;
           acc += rule.density;
           if (roll < acc) {
-            const iso = IsometricGrid.gridToScreen(gx, gy);
+            const iso = TileGrid.tileFoot(gx, gy);
             this.props.push({
               gx,
               gy,
@@ -137,12 +137,12 @@ export class DecorLayer {
 
   /**
    * Agrega los props que caen en pantalla a la lista de dibujo ordenada por profundidad.
-   * Se ordenan por la y de su base (el centro de su casilla), igual que el jugador, que tambien
+   * Se ordenan por la y de su base (donde pisan), igual que el jugador, que tambien
    * se ancla por los pies. La niebla los oscurece en vez de ocultarlos, para que el mundo se vea continuo.
    */
   public collectRenderables(
     ctx: CanvasRenderingContext2D,
-    grid: IsometricGrid,
+    grid: TileGrid,
     biome: string,
     bounds: { minX: number; maxX: number; minY: number; maxY: number },
     cameraX: number,

@@ -209,9 +209,9 @@ canvas#game-canvas {
   touch-action: manipulation;
 }
 
-/* 2.5D Diamond D-Pad Layout — 3×3 grid, 9 buttons (8 directions + wait) */
+/* D-Pad de 8 direcciones: cuadricula 3x3, los botones se acomodan por orden en el HTML */
 
-.iso-dpad {
+.dpad {
   position: relative;
   width: 186px;
   height: 186px;
@@ -225,7 +225,7 @@ canvas#game-canvas {
   touch-action: manipulation;
 }
 
-.iso-btn {
+.dpad-btn {
   pointer-events: auto;
   display: flex;
   align-items: center;
@@ -244,43 +244,23 @@ canvas#game-canvas {
   transition: transform 0.08s ease, background 0.08s ease, border-color 0.08s ease, box-shadow 0.08s ease;
 }
 
-.iso-btn:active {
+.dpad-btn:active {
   transform: scale(0.90);
   background: rgba(212, 175, 55, 0.45);
   border-color: #ffd700;
   box-shadow: 0 0 16px rgba(212, 175, 55, 0.8);
 }
 
-/* Diagonal corners (N/S/W/E in isometric space) */
+/* Boton central: esperar un turno */
 
-.iso-btn-n { grid-column: 1; grid-row: 1; }
-
-.iso-btn-nw { grid-column: 2; grid-row: 1; }
-
-.iso-btn-ne { grid-column: 3; grid-row: 1; }
-
-.iso-btn-w { grid-column: 1; grid-row: 2; }
-
-.iso-btn-e { grid-column: 3; grid-row: 2; }
-
-.iso-btn-sw { grid-column: 1; grid-row: 3; }
-
-.iso-btn-se { grid-column: 2; grid-row: 3; }
-
-.iso-btn-s { grid-column: 3; grid-row: 3; }
-
-/* Center wait button — distinct style */
-
-.iso-btn-wait {
-  grid-column: 2;
-  grid-row: 2;
+.dpad-wait {
   border-color: #38bdf8;
   background: rgba(56, 189, 248, 0.25);
   border-radius: 50%;
   font-size: 22px;
 }
 
-.iso-btn-wait:active {
+.dpad-wait:active {
   background: rgba(56, 189, 248, 0.55);
   border-color: #7dd3fc;
   box-shadow: 0 0 18px rgba(56, 189, 248, 0.9);

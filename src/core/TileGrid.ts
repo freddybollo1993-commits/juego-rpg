@@ -1,12 +1,14 @@
-// IsometricGrid.ts - Suelo isometrico 2:1 PLANO. El piso es un plano continuo que cubre toda la
-// pantalla (mas alla del mapa se extiende un borde exterior), y la niebla de guerra lo oscurece
-// en vez de ocultarlo. Asi nunca hay una "vista vacia" y cualquier toque cae sobre una casilla.
+// TileGrid.ts - Suelo visto DE FRENTE (cenital): una cuadricula de cuadrados perfectos.
+// El piso es un plano continuo que cubre toda la pantalla (mas alla del mapa se extiende un
+// borde exterior) y la niebla de guerra lo oscurece en vez de ocultarlo. Asi nunca hay una
+// "vista vacia" y cualquier toque cae sobre una casilla.
 
 import { RegionData } from '../data/regions';
 import { tileAtlas } from './TileAtlas';
+import { TILE_SIZE, MAP_SIZE } from './Metrics';
 import { SHADE_ALPHA, SHADE_RGB, ShadeLevel, shadeForVisibility } from './Shade';
 
-export interface IsoTile {
+export interface Tile {
   gx: number;
   gy: number;
   terrainType: string;
@@ -61,65 +63,50 @@ function shadeColor(hex: string, level: ShadeLevel): string {
   return `rgb(${mix(r, dr)}, ${mix(g, dg)}, ${mix(b, db)})`;
 }
 
-export class IsometricGrid {
-  public static readonly TILE_WIDTH = 80;
-  public static readonly TILE_HEIGHT = 40;
-  public static readonly DEFAULT_SIZE = 64;
+export class TileGrid {
+  public static readonly TILE_SIZE = TILE_SIZE;
+  public static readonly DEFAULT_SIZE = MAP_SIZE;
   /** Casillas de piso extra dibujadas alrededor del mapa para no dejar nunca el borde a la vista */
-  public static readonly OUTSIDE_PAD = 30;
+  public static readonly OUTSIDE_PAD = 24;
+  /** Los pies de quien esta en una casilla quedan a esta distancia del borde inferior de la casilla */
+  public static readonly FOOT_INSET = Math.round(TILE_SIZE * 0.15);
 
-  public cols: number = IsometricGrid.DEFAULT_SIZE;
-  public rows: number = IsometricGrid.DEFAULT_SIZE;
-  public tiles: IsoTile[][] = [];
+  public cols: number = TileGrid.DEFAULT_SIZE;
+  public rows: number = TileGrid.DEFAULT_SIZE;
+  public tiles: Tile[][] = [];
   public hoveredTile: { gx: number; gy: number } | null = null;
   public targetTile: { gx: number; gy: number } | null = null;
 
   /** Casilla que se dibuja fuera del mapa (infranqueable y siempre oscura) */
-  private outsideTile: IsoTile = { gx: -1, gy: -1, terrainType: 'boundary_cliff', passable: false, visibility: 0, accentVariant: 0.5 };
+  private outsideTile: Tile = { gx: -1, gy: -1, terrainType: 'boundary_cliff', passable: false, visibility: 0, accentVariant: 0.5 };
 
-  constructor(cols: number = IsometricGrid.DEFAULT_SIZE, rows: number = IsometricGrid.DEFAULT_SIZE) {
+  constructor(cols: number = TileGrid.DEFAULT_SIZE, rows: number = TileGrid.DEFAULT_SIZE) {
     this.cols = cols;
     this.rows = rows;
   }
 
-  /** Coordenadas de cuadricula -> pantalla (centro del rombo) */
-  public static gridToScreen(gx: number, gy: number): { x: number; y: number } {
-    return {
-      x: (gx - gy) * (IsometricGrid.TILE_WIDTH / 2),
-      y: (gx + gy) * (IsometricGrid.TILE_HEIGHT / 2)
-    };
+  /** Esquina superior izquierda de una casilla en el mundo */
+  public static tileOrigin(gx: number, gy: number): { x: number; y: number } {
+    return { x: gx * TILE_SIZE, y: gy * TILE_SIZE };
   }
 
-  /** Pantalla -> casilla */
-  public static screenToGrid(screenX: number, screenY: number): { gx: number; gy: number } {
-    const halfW = IsometricGrid.TILE_WIDTH / 2;
-    const halfH = IsometricGrid.TILE_HEIGHT / 2;
-    return {
-      gx: Math.round((screenX / halfW + screenY / halfH) / 2),
-      gy: Math.round((screenY / halfH - screenX / halfW) / 2)
-    };
+  /** Donde pisa quien esta en la casilla: centro horizontal, cerca del borde inferior */
+  public static tileFoot(gx: number, gy: number): { x: number; y: number } {
+    return { x: gx * TILE_SIZE + TILE_SIZE / 2, y: (gy + 1) * TILE_SIZE - TileGrid.FOOT_INSET };
   }
 
-  /** Rango de casillas que puede tocar una ventana de pantalla (con margen), para dibujar solo lo visible */
-  public static visibleRange(cameraX: number, cameraY: number, width: number, height: number, margin: number = 2) {
-    const halfW = IsometricGrid.TILE_WIDTH / 2;
-    const halfH = IsometricGrid.TILE_HEIGHT / 2;
-    let gxMin = Infinity, gxMax = -Infinity, gyMin = Infinity, gyMax = -Infinity;
-    for (const x of [cameraX, cameraX + width]) {
-      for (const y of [cameraY, cameraY + height]) {
-        const gx = (x / halfW + y / halfH) / 2;
-        const gy = (y / halfH - x / halfW) / 2;
-        gxMin = Math.min(gxMin, gx);
-        gxMax = Math.max(gxMax, gx);
-        gyMin = Math.min(gyMin, gy);
-        gyMax = Math.max(gyMax, gy);
-      }
-    }
+  /** Punto del mundo -> casilla que lo contiene */
+  public static screenToGrid(worldX: number, worldY: number): { gx: number; gy: number } {
+    return { gx: Math.floor(worldX / TILE_SIZE), gy: Math.floor(worldY / TILE_SIZE) };
+  }
+
+  /** Rango de casillas que toca una ventana del mundo (con margen), para dibujar solo lo visible */
+  public static visibleRange(cameraX: number, cameraY: number, width: number, height: number, margin: number = 1) {
     return {
-      gxMin: Math.floor(gxMin) - margin,
-      gxMax: Math.ceil(gxMax) + margin,
-      gyMin: Math.floor(gyMin) - margin,
-      gyMax: Math.ceil(gyMax) + margin
+      gxMin: Math.floor(cameraX / TILE_SIZE) - margin,
+      gxMax: Math.floor((cameraX + width) / TILE_SIZE) + margin,
+      gyMin: Math.floor(cameraY / TILE_SIZE) - margin,
+      gyMax: Math.floor((cameraY + height) / TILE_SIZE) + margin
     };
   }
 
@@ -173,7 +160,7 @@ export class IsometricGrid {
   }
 
   /** Casilla del mapa, o la casilla exterior si esta fuera */
-  public getTile(gx: number, gy: number): IsoTile {
+  public getTile(gx: number, gy: number): Tile {
     return this.tiles[gx]?.[gy] ?? this.outsideTile;
   }
 
@@ -226,11 +213,9 @@ export class IsometricGrid {
   public draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number, region: RegionData) {
     const width = ctx.canvas.width;
     const height = ctx.canvas.height;
-    const halfW = IsometricGrid.TILE_WIDTH / 2;
-    const halfH = IsometricGrid.TILE_HEIGHT / 2;
-    const pad = IsometricGrid.OUTSIDE_PAD;
+    const pad = TileGrid.OUTSIDE_PAD;
 
-    const r = IsometricGrid.visibleRange(cameraX, cameraY, width, height);
+    const r = TileGrid.visibleRange(cameraX, cameraY, width, height);
     const gxMin = Math.max(-pad, r.gxMin);
     const gxMax = Math.min(this.cols - 1 + pad, r.gxMax);
     const gyMin = Math.max(-pad, r.gyMin);
@@ -238,71 +223,40 @@ export class IsometricGrid {
 
     ctx.imageSmoothingEnabled = false; // pixel art nitido
 
-    // Diagonal por diagonal (suma gx+gy) para que el solape de 1 px entre rombos quede ordenado
-    for (let sum = gxMin + gyMin; sum <= gxMax + gyMax; sum++) {
-      const start = Math.max(gxMin, sum - gyMax);
-      const end = Math.min(gxMax, sum - gyMin);
-      for (let gx = start; gx <= end; gx++) {
-        const gy = sum - gx;
-        const px = (gx - gy) * halfW - cameraX;
-        const py = (gx + gy) * halfH - cameraY;
-        if (px < -halfW * 2 || px > width + halfW * 2 || py < -halfH * 2 || py > height + halfH * 2) continue;
+    for (let gy = gyMin; gy <= gyMax; gy++) {
+      for (let gx = gxMin; gx <= gxMax; gx++) {
+        // Posiciones enteras: las casillas vecinas quedan exactamente pegadas, sin lineas entre ellas
+        const px = Math.round(gx * TILE_SIZE - cameraX);
+        const py = Math.round(gy * TILE_SIZE - cameraY);
         this.drawTile(ctx, px, py, this.getTile(gx, gy), region);
       }
     }
 
     // Resaltes de la casilla bajo el cursor y de la ultima tocada
     for (const [tile, color, line] of [
-      [this.hoveredTile, 'rgba(255, 215, 0, 0.8)', 2.5],
+      [this.hoveredTile, 'rgba(255, 215, 0, 0.8)', 2],
       [this.targetTile, 'rgba(0, 245, 212, 0.9)', 3]
     ] as const) {
       if (!tile) continue;
-      const s = IsometricGrid.gridToScreen(tile.gx, tile.gy);
-      this.drawTileOutline(ctx, s.x - cameraX, s.y - cameraY, halfW, halfH, color, line);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = line;
+      ctx.strokeRect(
+        Math.round(tile.gx * TILE_SIZE - cameraX) + line / 2,
+        Math.round(tile.gy * TILE_SIZE - cameraY) + line / 2,
+        TILE_SIZE - line,
+        TILE_SIZE - line
+      );
     }
   }
 
-  private drawTile(ctx: CanvasRenderingContext2D, px: number, py: number, tile: IsoTile, region: RegionData) {
+  /** px, py = esquina superior izquierda de la casilla en pantalla */
+  private drawTile(ctx: CanvasRenderingContext2D, px: number, py: number, tile: Tile, region: RegionData) {
     const shade = shadeForVisibility(tile.visibility);
     if (tileAtlas.draw(ctx, region.biomeType, tile.terrainType, tile.accentVariant, px, py, shade)) return;
 
-    // Respaldo sin imagen: rombo plano del color del terreno (el borde del mismo color tapa las costuras)
-    const halfW = IsometricGrid.TILE_WIDTH / 2;
-    const halfH = IsometricGrid.TILE_HEIGHT / 2;
-    const color = shadeColor(this.getTileColor(tile.terrainType, region, tile.accentVariant), shade);
-    ctx.beginPath();
-    ctx.moveTo(px, py - halfH);
-    ctx.lineTo(px + halfW, py);
-    ctx.lineTo(px, py + halfH);
-    ctx.lineTo(px - halfW, py);
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  private drawTileOutline(
-    ctx: CanvasRenderingContext2D,
-    px: number,
-    py: number,
-    halfW: number,
-    halfH: number,
-    color: string,
-    lineWidth: number
-  ) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(px, py - halfH);
-    ctx.lineTo(px + halfW, py);
-    ctx.lineTo(px, py + halfH);
-    ctx.lineTo(px - halfW, py);
-    ctx.closePath();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth;
-    ctx.stroke();
-    ctx.restore();
+    // Respaldo sin imagen: cuadrado plano del color del terreno
+    ctx.fillStyle = shadeColor(this.getTileColor(tile.terrainType, region, tile.accentVariant), shade);
+    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
   }
 
   private getTileColor(terrain: string, region: RegionData, variant: number): string {

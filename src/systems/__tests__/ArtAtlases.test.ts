@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { TILE_ATLAS_MANIFEST } from '../../core/TileAtlas';
 import { PROP_ATLAS_MANIFEST } from '../../core/PropAtlas';
-import { IsometricGrid } from '../../core/IsometricGrid';
+import { TILE_SIZE } from '../../core/Metrics';
 import { Player } from '../../entities/Player';
 import { SHADE_ALPHA, shadeForVisibility } from '../../core/Shade';
 
@@ -26,11 +26,11 @@ describe('Atlas de arte: los PNG deben coincidir con sus manifiestos', () => {
     }
   });
 
-  it('las celdas de suelo son exactamente una casilla plana', () => {
+  it('las celdas de suelo son exactamente una casilla: un cuadrado perfecto', () => {
     for (const def of Object.values(TILE_ATLAS_MANIFEST)) {
-      expect(def.cellW).toBe(IsometricGrid.TILE_WIDTH);
-      expect(def.cellH).toBe(IsometricGrid.TILE_HEIGHT);
-      expect(def.anchorY).toBe(IsometricGrid.TILE_HEIGHT / 2);
+      expect(def.cellW).toBe(TILE_SIZE);
+      expect(def.cellH).toBe(TILE_SIZE);
+      expect(def.cellW).toBe(def.cellH);
     }
   });
 
@@ -44,11 +44,11 @@ describe('Atlas de arte: los PNG deben coincidir con sus manifiestos', () => {
 });
 
 describe('Proporciones y niebla', () => {
-  it('el personaje mide cerca de una casilla de alto y menos de media de ancho', () => {
+  it('el personaje cabe holgado dentro de una casilla', () => {
     const p = new Player();
-    expect(p.height / IsometricGrid.TILE_HEIGHT).toBeGreaterThan(0.8);
-    expect(p.height / IsometricGrid.TILE_HEIGHT).toBeLessThan(1.0);
-    expect(p.width / IsometricGrid.TILE_WIDTH).toBeLessThan(0.5);
+    expect(p.height / TILE_SIZE).toBeGreaterThan(0.5);
+    expect(p.height / TILE_SIZE).toBeLessThan(0.85);
+    expect(p.width / TILE_SIZE).toBeLessThan(0.55);
   });
 
   it('la niebla oscurece mas lo no explorado que lo recordado, y deja intacto lo visible', () => {

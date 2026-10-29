@@ -15,6 +15,8 @@ export interface WeatherParticle {
 export class WeatherSystem {
   private particles: WeatherParticle[] = [];
   private maxParticles: number = 180;
+  private lastWidth: number = 0;
+  private lastHeight: number = 0;
   public currentWeather: string = 'clear';
 
   constructor() {}
@@ -28,6 +30,15 @@ export class WeatherSystem {
 
   public updateAndDraw(ctx: CanvasRenderingContext2D, width: number, height: number, _cameraX: number, _cameraY: number, delta: number) {
     if (this.currentWeather === 'clear') return;
+
+    // Un lienzo de tamano 0 (carga, giro del celular, ventana oculta) haria nacer todas las gotas en
+    // la misma columna; se espera a que tenga tamano y se vuelven a repartir si el tamano cambia.
+    if (width <= 0 || height <= 0) return;
+    if (width !== this.lastWidth || height !== this.lastHeight) {
+      this.particles = [];
+      this.lastWidth = width;
+      this.lastHeight = height;
+    }
 
     // Pre-allocate particles if needed
     while (this.particles.length < this.maxParticles) {

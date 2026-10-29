@@ -1,4 +1,4 @@
-// main.ts - Punto de entrada: lienzo responsivo, controles (D-Pad isometrico, teclado, toque) y panel de opciones.
+// main.ts - Punto de entrada: lienzo responsivo, controles (D-Pad, teclado, toque) y panel de opciones.
 
 import './style.css';
 import { Game } from './core/Game';
@@ -101,24 +101,22 @@ function initApp() {
     });
   };
 
-  // D-Pad isometrico de 8 direcciones
-  //   Ejes:       NO(-1,0)  NE(0,-1)  SE(+1,0)  SO(0,+1)
-  //   Diagonales: N(-1,-1)  E(+1,-1)  S(+1,+1)  O(-1,+1)
-  bindTouchOrClick('btn-iso-nw', () => game.stepPlayer(-1, 0));
-  bindTouchOrClick('btn-iso-ne', () => game.stepPlayer(0, -1));
-  bindTouchOrClick('btn-iso-se', () => game.stepPlayer(1, 0));
-  bindTouchOrClick('btn-iso-sw', () => game.stepPlayer(0, 1));
-  bindTouchOrClick('btn-iso-n', () => game.stepPlayer(-1, -1));
-  bindTouchOrClick('btn-iso-s', () => game.stepPlayer(1, 1));
-  bindTouchOrClick('btn-iso-w', () => game.stepPlayer(-1, 1));
-  bindTouchOrClick('btn-iso-e', () => game.stepPlayer(1, -1));
-  bindTouchOrClick('btn-iso-wait', () => game.waitPlayer());
+  // D-Pad de 8 direcciones (x crece hacia la derecha, y hacia abajo)
+  bindTouchOrClick('btn-dpad-ul', () => game.stepPlayer(-1, -1));
+  bindTouchOrClick('btn-dpad-up', () => game.stepPlayer(0, -1));
+  bindTouchOrClick('btn-dpad-ur', () => game.stepPlayer(1, -1));
+  bindTouchOrClick('btn-dpad-left', () => game.stepPlayer(-1, 0));
+  bindTouchOrClick('btn-dpad-right', () => game.stepPlayer(1, 0));
+  bindTouchOrClick('btn-dpad-dl', () => game.stepPlayer(-1, 1));
+  bindTouchOrClick('btn-dpad-down', () => game.stepPlayer(0, 1));
+  bindTouchOrClick('btn-dpad-dr', () => game.stepPlayer(1, 1));
+  bindTouchOrClick('btn-dpad-wait', () => game.waitPlayer());
 
   // Toque / clic en el mapa: da un paso hacia esa casilla (o espera si es la propia)
   canvas.addEventListener('click', (e) => game.handleCanvasClick(e.clientX, e.clientY));
   canvas.addEventListener('mousemove', (e) => game.handleCanvasHover(e.clientX, e.clientY));
 
-  // Teclado: WASD / flechas = ejes, Q E Z C = diagonales, Espacio o . = esperar
+  // Teclado: WASD / flechas = 4 direcciones, Q E Z C = diagonales, Espacio o . = esperar
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     if (e.key === 'Escape') { closePanel(); return; }
@@ -126,8 +124,8 @@ function initApp() {
     switch (e.key.toLowerCase()) {
       case 'w': case 'arrowup': game.stepPlayer(0, -1); break;
       case 's': case 'arrowdown': game.stepPlayer(0, 1); break;
-      case 'd': case 'arrowright': game.stepPlayer(1, 0); break;
       case 'a': case 'arrowleft': game.stepPlayer(-1, 0); break;
+      case 'd': case 'arrowright': game.stepPlayer(1, 0); break;
       case 'q': game.stepPlayer(-1, -1); break;
       case 'e': game.stepPlayer(1, -1); break;
       case 'z': game.stepPlayer(-1, 1); break;

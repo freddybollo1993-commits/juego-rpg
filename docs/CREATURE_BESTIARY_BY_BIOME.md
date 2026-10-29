@@ -52,7 +52,7 @@ Al diseñar el comportamiento conviene apoyarse en lo que existe:
 
 ### 2.4 Sprites (resumen de la biblia de arte)
 - Animaciones: `idle` (6), `walk` (8), `attack` (6), `hit` (3), `death` (8) a 12 FPS. Para las criaturas comunes basta con un mínimo de 2/3/3 al inicio.
-- Direcciones: 4 (isométrica). Paleta de un máximo de 32 colores por bioma.
+- Direcciones: 4 (vista de frente). Paleta de un máximo de 32 colores por bioma.
 - **Un solo color de acento brillante por criatura**, tomado de la paleta del bioma.
 
 ---

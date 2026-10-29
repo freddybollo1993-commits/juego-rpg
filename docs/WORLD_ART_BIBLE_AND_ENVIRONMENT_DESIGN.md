@@ -167,7 +167,7 @@ El mundo combina el **Dark Medieval Survival** (crudeza, supervivencia ante incl
 
 ### 5.2 Pipeline 2D / Pixel Art / Top-Down (Canvas / WebGL / Godot / Phaser)
 * **Cuadrícula de Tileset:** Base en **32x32 px** o **64x64 px** con auto-tiling bitmask de 47 tiles para transiciones orgánicas entre biomas.
-* **Sprite Sheets de Criaturas:** 8 direcciones (o 4 direcciones isométrica/top-down), animaciones a 12 FPS:
+* **Sprite Sheets de Criaturas:** 8 direcciones (o 4 direcciones, vista de frente), animaciones a 12 FPS:
   * `idle` (6 frames)
   * `walk/run` (8 frames)
   * `attack_primary` (6 frames con anticipación y follow-through)
