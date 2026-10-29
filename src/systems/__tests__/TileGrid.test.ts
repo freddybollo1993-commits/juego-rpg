@@ -1,42 +1,63 @@
 import { describe, it, expect } from 'vitest';
 import { TileGrid } from '../../core/TileGrid';
-import { TILE_SIZE, MAP_SIZE } from '../../core/Metrics';
+import { TILE_SIZE, TILE_SIDE, MAP_SIZE } from '../../core/Metrics';
 import { TILE_ATLAS_MANIFEST } from '../../core/TileAtlas';
 import { REGIONS_DATA } from '../../data/regions';
 
-describe('Cuadricula vista de frente: cuadrados perfectos', () => {
-  it('usa mapas de 64x64 casillas cuadradas de 64 px', () => {
+const HALF = TILE_SIZE / 2;
+
+describe('Cuadricula de cuadrados perfectos girados 45 grados', () => {
+  it('usa mapas de 64x64 casillas y un rombo de 96x96', () => {
     const grid = new TileGrid();
     expect(grid.cols).toBe(MAP_SIZE);
     expect(grid.rows).toBe(MAP_SIZE);
     expect(MAP_SIZE).toBe(64);
-    expect(TILE_SIZE).toBe(64);
+    expect(TILE_SIZE).toBe(96);
     expect(TileGrid.TILE_SIZE).toBe(TILE_SIZE);
   });
 
-  it('cada casilla mide lo mismo de ancho que de alto y las vecinas se tocan exactamente', () => {
-    const a = TileGrid.tileOrigin(10, 20);
-    const right = TileGrid.tileOrigin(11, 20);
-    const below = TileGrid.tileOrigin(10, 21);
-    expect(right.x - a.x).toBe(TILE_SIZE);
-    expect(right.y).toBe(a.y);
-    expect(below.y - a.y).toBe(TILE_SIZE);
-    expect(below.x).toBe(a.x);
-    expect(right.x - a.x).toBe(below.y - a.y); // ancho == alto
+  it('cada casilla es un cuadrado perfecto: lados iguales, perpendiculares y a 45 grados', () => {
+    const o = TileGrid.tileCenter(10, 10);
+    const ex = TileGrid.tileCenter(11, 10); // un paso por el eje x de la cuadricula
+    const ey = TileGrid.tileCenter(10, 11); // un paso por el eje y
+    const vx = { x: ex.x - o.x, y: ex.y - o.y };
+    const vy = { x: ey.x - o.x, y: ey.y - o.y };
+
+    expect(Math.hypot(vx.x, vx.y)).toBeCloseTo(TILE_SIDE); // lado
+    expect(Math.hypot(vy.x, vy.y)).toBeCloseTo(TILE_SIDE); // mismo lado
+    expect(vx.x * vy.x + vx.y * vy.y).toBeCloseTo(0); // perpendiculares (90 grados)
+    expect(Math.abs(vx.x)).toBeCloseTo(Math.abs(vx.y)); // girados exactamente 45 grados
+    expect(Math.abs(vy.x)).toBeCloseTo(Math.abs(vy.y));
   });
 
-  it('un punto del mundo cae en la casilla que le toca, incluidos los bordes', () => {
-    expect(TileGrid.screenToGrid(0, 0)).toEqual({ gx: 0, gy: 0 });
-    expect(TileGrid.screenToGrid(TILE_SIZE - 1, TILE_SIZE - 1)).toEqual({ gx: 0, gy: 0 });
-    expect(TileGrid.screenToGrid(TILE_SIZE, TILE_SIZE)).toEqual({ gx: 1, gy: 1 });
-    expect(TileGrid.screenToGrid(-1, -1)).toEqual({ gx: -1, gy: -1 });
+  it('el rombo mide lo mismo de ancho que de alto (proporcion 1:1)', () => {
+    const o = TileGrid.tileCenter(5, 5);
+    const across = TileGrid.tileCenter(6, 4); // vecino en horizontal de pantalla
+    const down = TileGrid.tileCenter(6, 6); // vecino en vertical de pantalla
+    expect(across.x - o.x).toBe(TILE_SIZE);
+    expect(across.y - o.y).toBe(0);
+    expect(down.y - o.y).toBe(TILE_SIZE);
+    expect(down.x - o.x).toBe(0);
+  });
 
-    for (const [gx, gy] of [[0, 0], [10, 12], [63, 63], [5, 40]]) {
-      const o = TileGrid.tileOrigin(gx, gy);
-      expect(TileGrid.screenToGrid(o.x, o.y)).toEqual({ gx, gy });
-      expect(TileGrid.screenToGrid(o.x + TILE_SIZE / 2, o.y + TILE_SIZE / 2)).toEqual({ gx, gy });
-      const foot = TileGrid.tileFoot(gx, gy);
-      expect(TileGrid.screenToGrid(foot.x, foot.y)).toEqual({ gx, gy }); // los pies quedan dentro de su casilla
+  it('un punto del mundo cae en el rombo que le toca', () => {
+    for (const [gx, gy] of [[0, 0], [10, 12], [63, 63], [5, 40], [-3, 7]]) {
+      const c = TileGrid.tileCenter(gx, gy);
+      expect(TileGrid.screenToGrid(c.x, c.y)).toEqual({ gx, gy });
+      // Dentro del rombo (|dx| + |dy| < mitad) sigue siendo la misma casilla
+      expect(TileGrid.screenToGrid(c.x + 30, c.y + 10)).toEqual({ gx, gy });
+      expect(TileGrid.screenToGrid(c.x - 20, c.y + 25)).toEqual({ gx, gy });
+      expect(TileGrid.screenToGrid(c.x + 5, c.y - 40)).toEqual({ gx, gy });
+      // Al cruzar la arista se pasa a la casilla vecina
+      expect(TileGrid.screenToGrid(c.x + 60, c.y + 30)).toEqual({ gx: gx + 1, gy });
+      expect(TileGrid.screenToGrid(c.x - 60, c.y + 30)).toEqual({ gx, gy: gy + 1 });
+    }
+  });
+
+  it('los pies quedan dentro de su propia casilla', () => {
+    for (const [gx, gy] of [[0, 0], [32, 32], [63, 10]]) {
+      const f = TileGrid.tileFoot(gx, gy);
+      expect(TileGrid.screenToGrid(f.x, f.y)).toEqual({ gx, gy });
     }
   });
 
@@ -89,22 +110,31 @@ describe('Cuadricula vista de frente: cuadrados perfectos', () => {
     expect(outside.terrainType).toBe('deep_water');
     expect(grid.getTile(10, 10)).toBe(grid.tiles[10][10]);
 
-    // Una pantalla grande centrada en cualquier punto transitable no se sale del piso dibujado
-    const edge = TileGrid.tileOrigin(2, 2); // lo mas cerca del borde a lo que se puede llegar
-    const r = TileGrid.visibleRange(edge.x - 960, edge.y - 540, 1920, 1080, 0);
+    // Una pantalla grande centrada lo mas cerca del borde al que se puede llegar no se sale del piso dibujado
+    const c = TileGrid.tileCenter(2, 2);
+    const r = TileGrid.visibleRange(c.x - 960, c.y - 540, 1920, 1080, 0);
     expect(-r.gxMin).toBeLessThanOrEqual(TileGrid.OUTSIDE_PAD);
     expect(-r.gyMin).toBeLessThanOrEqual(TileGrid.OUTSIDE_PAD);
   });
 
-  it('el rango visible abarca exactamente las casillas de la pantalla (mas el margen)', () => {
-    const r = TileGrid.visibleRange(0, 0, TILE_SIZE * 10, TILE_SIZE * 6, 0);
-    expect(r).toEqual({ gxMin: 0, gxMax: 10, gyMin: 0, gyMax: 6 });
+  it('el rango visible contiene todas las casillas cuyo rombo toca la pantalla', () => {
+    const cam = { x: 1000, y: 500, w: 1280, h: 720 };
+    const r = TileGrid.visibleRange(cam.x, cam.y, cam.w, cam.h, 0);
+    const inRange = (gx: number, gy: number) => gx >= r.gxMin && gx <= r.gxMax && gy >= r.gyMin && gy <= r.gyMax;
 
-    const m = TileGrid.visibleRange(TILE_SIZE * 3.5, TILE_SIZE * 2.5, TILE_SIZE * 10, TILE_SIZE * 6, 1);
-    expect(m.gxMin).toBe(3 - 1);
-    expect(m.gyMin).toBe(2 - 1);
-    expect(m.gxMax).toBe(13 + 1);
-    expect(m.gyMax).toBe(8 + 1);
+    for (let gx = -10; gx < 60; gx++) {
+      for (let gy = -10; gy < 60; gy++) {
+        const c = TileGrid.tileCenter(gx, gy);
+        // el centro dentro de la pantalla -> la casilla esta dentro del rango
+        if (c.x >= cam.x && c.x <= cam.x + cam.w && c.y >= cam.y && c.y <= cam.y + cam.h) {
+          expect(inRange(gx, gy), `${gx},${gy}`).toBe(true);
+        }
+      }
+    }
+    // y el margen lo ensancha
+    const wider = TileGrid.visibleRange(cam.x, cam.y, cam.w, cam.h, 3);
+    expect(wider.gxMin).toBe(r.gxMin - 3);
+    expect(wider.gyMax).toBe(r.gyMax + 3);
   });
 
   it('la niebla de guerra revela un circulo y recuerda lo explorado', () => {
@@ -120,5 +150,15 @@ describe('Cuadricula vista de frente: cuadrados perfectos', () => {
     grid.updateFogOfWar(40, 32, 4);
     expect(grid.tiles[40][32].visibility).toBe(2);
     expect(grid.tiles[32][32].visibility).toBe(1); // explorada pero ya fuera de la vista
+  });
+
+  it('la rotacion de 45 grados conserva los circulos: la vision se ve redonda en pantalla', () => {
+    const o = TileGrid.tileCenter(32, 32);
+    // casillas a la misma distancia en la cuadricula (4 pasos de eje) quedan a la misma distancia en pantalla
+    for (const [dx, dy] of [[4, 0], [0, 4], [-4, 0], [0, -4]]) {
+      const c = TileGrid.tileCenter(32 + dx, 32 + dy);
+      expect(Math.hypot(c.x - o.x, c.y - o.y)).toBeCloseTo(4 * TILE_SIDE);
+    }
+    void HALF;
   });
 });

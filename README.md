@@ -1,6 +1,6 @@
 # Isla Desconocida
 
-RPG de supervivencia y exploración **por turnos** en una isla desconocida. Pixel art visto de frente (cenital), cuadrícula de cuadrados perfectos, ambiente sombrío.
+RPG de supervivencia y exploración **por turnos** en una isla desconocida. Pixel art sobre una cuadrícula de cuadrados perfectos girados 45° (rombos 1:1), ambiente sombrío.
 
 ## Pilares del diseño
 - **Por turnos, el tiempo avanza con cada acción.** El reloj del mundo no corre solo: mover o esperar consumen minutos de juego (ver `TIME_COST` en [`src/core/TurnSystem.ts`](src/core/TurnSystem.ts)).
@@ -13,11 +13,11 @@ Base limpia, sin sistemas de combate, objetos ni misiones todavía. Lo que hay:
 
 | | |
 |---|---|
-| Mapa | **64×64** casillas por bioma (4096×4096 px) |
-| Casilla | **64×64 px**, un **cuadrado perfecto** visto de frente. El piso es un plano continuo que cubre toda la pantalla (el tamaño se cambia en [`src/core/Metrics.ts`](src/core/Metrics.ts)) |
+| Mapa | **64×64** casillas por bioma |
+| Casilla | Un **cuadrado perfecto girado 45°**: un rombo de **96×96 px** (lado ≈ 68 px). Proporción 1:1, así que los círculos (visión, luz) siguen siendo círculos. El piso es un plano continuo que cubre toda la pantalla. Tamaño en [`src/core/Metrics.ts`](src/core/Metrics.ts) |
 | Biomas | Orilla del Naufragio, Meseta Helada, Taiga, Ciénaga, Cañón, Abismo, Núcleo del Impacto |
 | Mundo | Terreno generado con ruido suave (mismo bioma = mismo mapa), escenografía decorativa, clima. La niebla de guerra **oscurece** el piso (visible / recordado / sin explorar) en vez de ocultarlo, así nunca hay vista vacía y cualquier toque cae sobre una casilla |
-| Personaje | 28×42 px sobre una casilla de 64 |
+| Personaje | 28×42 px (~0.3 del ancho de la casilla) |
 | Reloj | Día/noche por turnos, 10 min de juego por acción |
 | Guardado | Automático en cada turno (bioma, posición, turno, hora) |
 
@@ -42,7 +42,7 @@ Para abrir un bioma concreto: `http://localhost:5173/?biome=frost` (`beach`, `fr
 ## Controles
 | | |
 |---|---|
-| Mover | D-Pad en pantalla · `W A S D` / flechas (ejes) · `Q E Z C` (diagonales) · tocar una casilla |
+| Mover | D-Pad en pantalla · `W A S D` / flechas (arriba, abajo, izquierda, derecha **de la pantalla**) · `Q E Z C` (las 4 diagonales) · tocar una casilla |
 | Esperar un turno | botón ⏳ · `Espacio` · `.` · tocar la propia casilla |
 
 ## Estructura
@@ -55,7 +55,7 @@ src/
   ui/        HUD
   audio/     SoundManager (pasos y ambiente procedural)
 public/
-  tiles/     Atlas de suelo por bioma (64×64 px por celda, un cuadrado por casilla)
+  tiles/     Atlas de suelo por bioma (celdas de 96×96 px con el rombo 1:1 inscrito)
   props/     Atlas de escenografía por bioma (64×80 px por celda)
 tools/       Generadores de arte provisional (node tools/generate-placeholder-*.mjs)
 blender/     Rig de Blender para renderizar criaturas en el ángulo exacto del juego

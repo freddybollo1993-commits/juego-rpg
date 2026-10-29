@@ -1,9 +1,10 @@
 // generate-placeholder-tiles.mjs
 // Escribe atlas PROVISIONALES de suelo para cada bioma en public/tiles/<bioma>.png.
 // El diseno debe coincidir con TILE_ATLAS_MANIFEST (src/core/TileAtlas.ts):
-//   celdas CUADRADAS de TILE_SIZE x TILE_SIZE (src/core/Metrics.ts), vistas de frente y pintadas
-//   de borde a borde, una fila por terreno en el orden de abajo, 3 columnas de variantes. Cualquier PNG se puede reemplazar por arte final sin tocar codigo
-//   mientras se respete ese diseno.
+//   celdas cuadradas de TILE_SIZE x TILE_SIZE (src/core/Metrics.ts) con un ROMBO 1:1 inscrito
+//   (un cuadrado perfecto girado 45 grados) que llega hasta el borde de la celda; las 4 esquinas
+//   quedan transparentes. Una fila por terreno en el orden de abajo, 3 columnas de variantes.
+//   Cualquier PNG se puede reemplazar por arte final sin tocar codigo mientras se respete ese diseno.
 //
 // Uso: node tools/generate-placeholder-tiles.mjs
 
@@ -12,9 +13,10 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const CELL = 64; // debe ser igual a TILE_SIZE en src/core/Metrics.ts
+const CELL = 96; // debe ser igual a TILE_SIZE en src/core/Metrics.ts
 const CELL_W = CELL;
 const CELL_H = CELL;
+const HALF = CELL / 2;
 const VARIANTS = 3;
 
 const hex = (h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255];
@@ -91,6 +93,10 @@ function renderAtlas(terrains) {
     for (let variant = 0; variant < VARIANTS; variant++) {
       for (let cy = 0; cy < CELL_H; cy++) {
         for (let cx = 0; cx < CELL_W; cx++) {
+          // Rombo 1:1 inscrito. Es <= (no <): los pixeles justo sobre la arista pertenecen a las dos
+          // casillas vecinas, asi se solapan 1 px y no quedan lineas entre ellas.
+          if (Math.abs(cx + 0.5 - HALF) + Math.abs(cy + 0.5 - HALF) > HALF) continue;
+
           // Textura suave: ruido por pixel, sin bordes ni luces marcadas en el contorno
           const noise = (hash(cx, cy, row * 7 + variant) - 0.5) * 14;
           let color = terrain.top.map((v) => v + noise);

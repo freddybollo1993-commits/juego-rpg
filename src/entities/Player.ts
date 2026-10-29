@@ -45,12 +45,15 @@ export class Player {
     this.y += (this.targetY - this.y) * a;
   }
 
+  /** dx, dy = paso en la cuadricula; hacia donde mira se decide por el movimiento en PANTALLA */
   public setFacingFromStep(dx: number, dy: number) {
+    const screenX = dx - dy;
+    const screenY = dx + dy;
     // En diagonal gana el eje horizontal (es el que cambia el dibujo)
-    if (dx < 0) this.facing = 'left';
-    else if (dx > 0) this.facing = 'right';
-    else if (dy < 0) this.facing = 'up';
-    else if (dy > 0) this.facing = 'down';
+    if (screenX < 0) this.facing = 'left';
+    else if (screenX > 0) this.facing = 'right';
+    else if (screenY < 0) this.facing = 'up';
+    else if (screenY > 0) this.facing = 'down';
   }
 
   public draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {

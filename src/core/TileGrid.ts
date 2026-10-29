@@ -1,11 +1,18 @@
-// TileGrid.ts - Suelo visto DE FRENTE (cenital): una cuadricula de cuadrados perfectos.
+// TileGrid.ts - Suelo: una cuadricula de cuadrados perfectos GIRADOS 45 grados (rombos 1:1).
 // El piso es un plano continuo que cubre toda la pantalla (mas alla del mapa se extiende un
 // borde exterior) y la niebla de guerra lo oscurece en vez de ocultarlo. Asi nunca hay una
 // "vista vacia" y cualquier toque cae sobre una casilla.
+//
+//   pantalla x = (gx - gy) * TILE_SIZE / 2
+//   pantalla y = (gx + gy) * TILE_SIZE / 2
+//
+// Es una rotacion de 45 grados (con escala), no un aplastado: no se pierde la forma cuadrada.
 
 import { RegionData } from '../data/regions';
 import { tileAtlas } from './TileAtlas';
-import { TILE_SIZE, MAP_SIZE } from './Metrics';
+import { TILE_SIZE, TILE_SIDE, MAP_SIZE } from './Metrics';
+
+const HALF = TILE_SIZE / 2;
 import { SHADE_ALPHA, SHADE_RGB, ShadeLevel, shadeForVisibility } from './Shade';
 
 export interface Tile {
@@ -65,11 +72,10 @@ function shadeColor(hex: string, level: ShadeLevel): string {
 
 export class TileGrid {
   public static readonly TILE_SIZE = TILE_SIZE;
+  public static readonly TILE_SIDE = TILE_SIDE;
   public static readonly DEFAULT_SIZE = MAP_SIZE;
   /** Casillas de piso extra dibujadas alrededor del mapa para no dejar nunca el borde a la vista */
   public static readonly OUTSIDE_PAD = 24;
-  /** Los pies de quien esta en una casilla quedan a esta distancia del borde inferior de la casilla */
-  public static readonly FOOT_INSET = Math.round(TILE_SIZE * 0.15);
 
   public cols: number = TileGrid.DEFAULT_SIZE;
   public rows: number = TileGrid.DEFAULT_SIZE;
@@ -85,28 +91,43 @@ export class TileGrid {
     this.rows = rows;
   }
 
-  /** Esquina superior izquierda de una casilla en el mundo */
-  public static tileOrigin(gx: number, gy: number): { x: number; y: number } {
-    return { x: gx * TILE_SIZE, y: gy * TILE_SIZE };
+  /** Centro de una casilla (el centro del rombo) en el mundo */
+  public static tileCenter(gx: number, gy: number): { x: number; y: number } {
+    return { x: (gx - gy) * HALF, y: (gx + gy) * HALF };
   }
 
-  /** Donde pisa quien esta en la casilla: centro horizontal, cerca del borde inferior */
+  /** Donde pisa quien esta en la casilla: su centro (de ahi se dibuja hacia arriba) */
   public static tileFoot(gx: number, gy: number): { x: number; y: number } {
-    return { x: gx * TILE_SIZE + TILE_SIZE / 2, y: (gy + 1) * TILE_SIZE - TileGrid.FOOT_INSET };
+    return TileGrid.tileCenter(gx, gy);
   }
 
-  /** Punto del mundo -> casilla que lo contiene */
+  /** Punto del mundo -> casilla (rombo) que lo contiene */
   public static screenToGrid(worldX: number, worldY: number): { gx: number; gy: number } {
-    return { gx: Math.floor(worldX / TILE_SIZE), gy: Math.floor(worldY / TILE_SIZE) };
+    // "|| 0" evita devolver -0 al redondear valores como -0.3
+    return {
+      gx: Math.round((worldX + worldY) / TILE_SIZE) || 0,
+      gy: Math.round((worldY - worldX) / TILE_SIZE) || 0
+    };
   }
 
   /** Rango de casillas que toca una ventana del mundo (con margen), para dibujar solo lo visible */
-  public static visibleRange(cameraX: number, cameraY: number, width: number, height: number, margin: number = 1) {
+  public static visibleRange(cameraX: number, cameraY: number, width: number, height: number, margin: number = 2) {
+    let gxMin = Infinity, gxMax = -Infinity, gyMin = Infinity, gyMax = -Infinity;
+    for (const x of [cameraX, cameraX + width]) {
+      for (const y of [cameraY, cameraY + height]) {
+        const gx = (x + y) / TILE_SIZE;
+        const gy = (y - x) / TILE_SIZE;
+        gxMin = Math.min(gxMin, gx);
+        gxMax = Math.max(gxMax, gx);
+        gyMin = Math.min(gyMin, gy);
+        gyMax = Math.max(gyMax, gy);
+      }
+    }
     return {
-      gxMin: Math.floor(cameraX / TILE_SIZE) - margin,
-      gxMax: Math.floor((cameraX + width) / TILE_SIZE) + margin,
-      gyMin: Math.floor(cameraY / TILE_SIZE) - margin,
-      gyMax: Math.floor((cameraY + height) / TILE_SIZE) + margin
+      gxMin: Math.floor(gxMin) - margin,
+      gxMax: Math.ceil(gxMax) + margin,
+      gyMin: Math.floor(gyMin) - margin,
+      gyMax: Math.ceil(gyMax) + margin
     };
   }
 
@@ -223,12 +244,17 @@ export class TileGrid {
 
     ctx.imageSmoothingEnabled = false; // pixel art nitido
 
-    for (let gy = gyMin; gy <= gyMax; gy++) {
-      for (let gx = gxMin; gx <= gxMax; gx++) {
-        // Posiciones enteras: las casillas vecinas quedan exactamente pegadas, sin lineas entre ellas
-        const px = Math.round(gx * TILE_SIZE - cameraX);
-        const py = Math.round(gy * TILE_SIZE - cameraY);
-        this.drawTile(ctx, px, py, this.getTile(gx, gy), region);
+    // Diagonal por diagonal (suma gx+gy): los rombos vecinos solo comparten el borde
+    for (let sum = gxMin + gyMin; sum <= gxMax + gyMax; sum++) {
+      const start = Math.max(gxMin, sum - gyMax);
+      const end = Math.min(gxMax, sum - gyMin);
+      for (let gx = start; gx <= end; gx++) {
+        const gy = sum - gx;
+        // Centro del rombo en pantalla, en pixeles enteros: los vecinos quedan exactamente pegados
+        const cx = Math.round((gx - gy) * HALF - cameraX);
+        const cy = Math.round((gx + gy) * HALF - cameraY);
+        if (cx < -TILE_SIZE || cx > width + TILE_SIZE || cy < -TILE_SIZE || cy > height + TILE_SIZE) continue;
+        this.drawTile(ctx, cx, cy, this.getTile(gx, gy), region);
       }
     }
 
@@ -238,25 +264,36 @@ export class TileGrid {
       [this.targetTile, 'rgba(0, 245, 212, 0.9)', 3]
     ] as const) {
       if (!tile) continue;
+      const c = TileGrid.tileCenter(tile.gx, tile.gy);
+      this.diamondPath(ctx, Math.round(c.x - cameraX), Math.round(c.y - cameraY), HALF - line);
       ctx.strokeStyle = color;
       ctx.lineWidth = line;
-      ctx.strokeRect(
-        Math.round(tile.gx * TILE_SIZE - cameraX) + line / 2,
-        Math.round(tile.gy * TILE_SIZE - cameraY) + line / 2,
-        TILE_SIZE - line,
-        TILE_SIZE - line
-      );
+      ctx.stroke();
     }
   }
 
-  /** px, py = esquina superior izquierda de la casilla en pantalla */
-  private drawTile(ctx: CanvasRenderingContext2D, px: number, py: number, tile: Tile, region: RegionData) {
-    const shade = shadeForVisibility(tile.visibility);
-    if (tileAtlas.draw(ctx, region.biomeType, tile.terrainType, tile.accentVariant, px, py, shade)) return;
+  private diamondPath(ctx: CanvasRenderingContext2D, cx: number, cy: number, half: number) {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - half);
+    ctx.lineTo(cx + half, cy);
+    ctx.lineTo(cx, cy + half);
+    ctx.lineTo(cx - half, cy);
+    ctx.closePath();
+  }
 
-    // Respaldo sin imagen: cuadrado plano del color del terreno
-    ctx.fillStyle = shadeColor(this.getTileColor(tile.terrainType, region, tile.accentVariant), shade);
-    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+  /** cx, cy = centro del rombo en pantalla */
+  private drawTile(ctx: CanvasRenderingContext2D, cx: number, cy: number, tile: Tile, region: RegionData) {
+    const shade = shadeForVisibility(tile.visibility);
+    if (tileAtlas.draw(ctx, region.biomeType, tile.terrainType, tile.accentVariant, cx - HALF, cy - HALF, shade)) return;
+
+    // Respaldo sin imagen: rombo plano del color del terreno (el borde del mismo color tapa las costuras)
+    const color = shadeColor(this.getTileColor(tile.terrainType, region, tile.accentVariant), shade);
+    this.diamondPath(ctx, cx, cy, HALF);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.fill();
+    ctx.stroke();
   }
 
   private getTileColor(terrain: string, region: RegionData, variant: number): string {

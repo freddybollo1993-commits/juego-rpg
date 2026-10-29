@@ -8,7 +8,7 @@ import { SaveSystem } from '../systems/SaveSystem';
 import { dayNightCycle } from '../systems/DayNightCycle';
 import { HUD } from '../ui/HUD';
 import { TileGrid } from './TileGrid';
-import { TILE_SIZE } from './Metrics';
+import { TILE_SIDE } from './Metrics';
 import { TurnSystem } from './TurnSystem';
 import { tileAtlas } from './TileAtlas';
 import { propAtlas } from './PropAtlas';
@@ -18,7 +18,7 @@ import { soundManager } from '../audio/SoundManager';
 const SIGHT_RADIUS = 4; // casillas que el jugador ve a su alrededor
 // El halo de luz se queda un poco por dentro del radio de vision para que se funda con la niebla
 // en vez de cortarse.
-const LIGHT_RADIUS_PX = Math.round(SIGHT_RADIUS * TILE_SIZE * 0.95);
+const LIGHT_RADIUS_PX = Math.round(SIGHT_RADIUS * TILE_SIDE * 0.95); // la rotacion de 45 grados conserva los circulos
 const BACKGROUND = '#05070b'; // mas alla del borde exterior del piso: oscuridad total
 
 export class Game {

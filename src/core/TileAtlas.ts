@@ -1,9 +1,10 @@
 // TileAtlas.ts - Hojas de suelo por bioma (con respaldo a color plano si falta la imagen)
 //
 // Cada bioma tiene UNA imagen: una fila por tipo de terreno y una columna por variante.
-// Las casillas se ven DE FRENTE y son cuadrados perfectos: la celda mide TILE_SIZE x TILE_SIZE
-// (ver Metrics.ts) y se pinta de borde a borde, sin sombras ni luces en el contorno para que
-// las casillas vecinas se unan sin costuras.
+// Cada casilla es un cuadrado perfecto girado 45 grados: un rombo de TILE_SIZE x TILE_SIZE (ver
+// Metrics.ts) inscrito en una celda cuadrada del mismo tamano; las 4 esquinas de la celda quedan
+// transparentes. El rombo llega hasta el borde de la celda y no lleva sombras ni luces en el
+// contorno, para que las casillas vecinas se unan sin costuras.
 //
 // Para poner arte propio: reemplazar public/tiles/<bioma>.png respetando este diseno.
 

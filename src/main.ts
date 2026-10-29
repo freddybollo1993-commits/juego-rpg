@@ -101,35 +101,38 @@ function initApp() {
     });
   };
 
-  // D-Pad de 8 direcciones (x crece hacia la derecha, y hacia abajo)
-  bindTouchOrClick('btn-dpad-ul', () => game.stepPlayer(-1, -1));
-  bindTouchOrClick('btn-dpad-up', () => game.stepPlayer(0, -1));
-  bindTouchOrClick('btn-dpad-ur', () => game.stepPlayer(1, -1));
-  bindTouchOrClick('btn-dpad-left', () => game.stepPlayer(-1, 0));
-  bindTouchOrClick('btn-dpad-right', () => game.stepPlayer(1, 0));
-  bindTouchOrClick('btn-dpad-dl', () => game.stepPlayer(-1, 1));
-  bindTouchOrClick('btn-dpad-down', () => game.stepPlayer(0, 1));
-  bindTouchOrClick('btn-dpad-dr', () => game.stepPlayer(1, 1));
+  // D-Pad de 8 direcciones, segun hacia donde se mueve el personaje EN PANTALLA. La cuadricula
+  // esta girada 45 grados: arriba/abajo/izquierda/derecha de la pantalla son pasos diagonales de
+  // la cuadricula, y las 4 diagonales de la pantalla son los pasos de un eje.
+  bindTouchOrClick('btn-dpad-ul', () => game.stepPlayer(-1, 0));
+  bindTouchOrClick('btn-dpad-up', () => game.stepPlayer(-1, -1));
+  bindTouchOrClick('btn-dpad-ur', () => game.stepPlayer(0, -1));
+  bindTouchOrClick('btn-dpad-left', () => game.stepPlayer(-1, 1));
+  bindTouchOrClick('btn-dpad-right', () => game.stepPlayer(1, -1));
+  bindTouchOrClick('btn-dpad-dl', () => game.stepPlayer(0, 1));
+  bindTouchOrClick('btn-dpad-down', () => game.stepPlayer(1, 1));
+  bindTouchOrClick('btn-dpad-dr', () => game.stepPlayer(1, 0));
   bindTouchOrClick('btn-dpad-wait', () => game.waitPlayer());
 
   // Toque / clic en el mapa: da un paso hacia esa casilla (o espera si es la propia)
   canvas.addEventListener('click', (e) => game.handleCanvasClick(e.clientX, e.clientY));
   canvas.addEventListener('mousemove', (e) => game.handleCanvasHover(e.clientX, e.clientY));
 
-  // Teclado: WASD / flechas = 4 direcciones, Q E Z C = diagonales, Espacio o . = esperar
+  // Teclado (direcciones en pantalla): WASD / flechas = arriba, abajo, izquierda, derecha;
+  // Q E Z C = las 4 diagonales; Espacio o . = esperar
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     if (e.key === 'Escape') { closePanel(); return; }
 
     switch (e.key.toLowerCase()) {
-      case 'w': case 'arrowup': game.stepPlayer(0, -1); break;
-      case 's': case 'arrowdown': game.stepPlayer(0, 1); break;
-      case 'a': case 'arrowleft': game.stepPlayer(-1, 0); break;
-      case 'd': case 'arrowright': game.stepPlayer(1, 0); break;
-      case 'q': game.stepPlayer(-1, -1); break;
-      case 'e': game.stepPlayer(1, -1); break;
-      case 'z': game.stepPlayer(-1, 1); break;
-      case 'c': game.stepPlayer(1, 1); break;
+      case 'w': case 'arrowup': game.stepPlayer(-1, -1); break;
+      case 's': case 'arrowdown': game.stepPlayer(1, 1); break;
+      case 'a': case 'arrowleft': game.stepPlayer(-1, 1); break;
+      case 'd': case 'arrowright': game.stepPlayer(1, -1); break;
+      case 'q': game.stepPlayer(-1, 0); break;
+      case 'e': game.stepPlayer(0, -1); break;
+      case 'z': game.stepPlayer(0, 1); break;
+      case 'c': game.stepPlayer(1, 0); break;
       case ' ':
       case '.':
         e.preventDefault();

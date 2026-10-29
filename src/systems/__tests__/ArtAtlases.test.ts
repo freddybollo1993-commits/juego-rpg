@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { inflateSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { TILE_ATLAS_MANIFEST } from '../../core/TileAtlas';
 import { PROP_ATLAS_MANIFEST } from '../../core/PropAtlas';
@@ -8,11 +9,29 @@ import { TILE_SIZE } from '../../core/Metrics';
 import { Player } from '../../entities/Player';
 import { SHADE_ALPHA, shadeForVisibility } from '../../core/Shade';
 
+function readPublic(publicPath: string): Buffer {
+  return readFileSync(fileURLToPath(new URL(`../../../public${publicPath}`, import.meta.url)));
+}
+
 /** Lee ancho y alto del encabezado de un PNG */
 function pngSize(publicPath: string): { w: number; h: number } {
-  const file = fileURLToPath(new URL(`../../../public${publicPath}`, import.meta.url));
-  const buf = readFileSync(file);
+  const buf = readPublic(publicPath);
   return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+}
+
+/** Alfa de un pixel de un PNG RGBA de 8 bits sin filtros (el formato que escriben tools/generate-placeholder-*.mjs) */
+function pngAlphaReader(publicPath: string): (x: number, y: number) => number {
+  const buf = readPublic(publicPath);
+  const w = buf.readUInt32BE(16);
+  const idat: Buffer[] = [];
+  for (let off = 8; off < buf.length; ) {
+    const len = buf.readUInt32BE(off);
+    if (buf.toString('ascii', off + 4, off + 8) === 'IDAT') idat.push(buf.subarray(off + 8, off + 8 + len));
+    off += 12 + len;
+  }
+  const raw = inflateSync(Buffer.concat(idat));
+  const stride = w * 4 + 1;
+  return (x, y) => raw[y * stride + 1 + x * 4 + 3];
 }
 
 describe('Atlas de arte: los PNG deben coincidir con sus manifiestos', () => {
@@ -26,11 +45,42 @@ describe('Atlas de arte: los PNG deben coincidir con sus manifiestos', () => {
     }
   });
 
-  it('las celdas de suelo son exactamente una casilla: un cuadrado perfecto', () => {
+  it('las celdas de suelo miden TILE_SIZE x TILE_SIZE (el rombo 1:1 inscrito)', () => {
     for (const def of Object.values(TILE_ATLAS_MANIFEST)) {
       expect(def.cellW).toBe(TILE_SIZE);
       expect(def.cellH).toBe(TILE_SIZE);
-      expect(def.cellW).toBe(def.cellH);
+    }
+  });
+
+  it('cada celda de suelo es un rombo: esquinas transparentes y aristas sin huecos', () => {
+    const half = TILE_SIZE / 2;
+    for (const [biome, def] of Object.entries(TILE_ATLAS_MANIFEST)) {
+      const alpha = pngAlphaReader(def.image);
+      const rows = Object.keys(def.terrains).length;
+      const variants = Object.values(def.terrains)[0].variants;
+      for (let row = 0; row < rows; row++) {
+        for (let v = 0; v < variants; v++) {
+          const ox = v * TILE_SIZE;
+          const oy = row * TILE_SIZE;
+          const where = `${biome} fila ${row} variante ${v}`;
+
+          // las 4 esquinas de la celda son transparentes
+          for (const [x, y] of [[0, 0], [TILE_SIZE - 1, 0], [0, TILE_SIZE - 1], [TILE_SIZE - 1, TILE_SIZE - 1]]) {
+            expect(alpha(ox + x, oy + y), `${where} esquina ${x},${y}`).toBe(0);
+          }
+          // el centro y los vertices del rombo (donde toca el borde de la celda) son opacos
+          for (const [x, y] of [[half, half], [half - 1, 0], [half, 0], [half - 1, TILE_SIZE - 1], [0, half - 1], [TILE_SIZE - 1, half]]) {
+            expect(alpha(ox + x, oy + y), `${where} punto ${x},${y}`).toBe(255);
+          }
+          // sin huecos: todo pixel con |dx| + |dy| <= mitad es opaco (asi las casillas vecinas se solapan, no se separan)
+          for (let y = 0; y < TILE_SIZE; y++) {
+            for (let x = 0; x < TILE_SIZE; x++) {
+              const inside = Math.abs(x + 0.5 - half) + Math.abs(y + 0.5 - half) <= half;
+              if (inside) expect(alpha(ox + x, oy + y), `${where} hueco en ${x},${y}`).toBe(255);
+            }
+          }
+        }
+      }
     }
   });
 
@@ -44,11 +94,12 @@ describe('Atlas de arte: los PNG deben coincidir con sus manifiestos', () => {
 });
 
 describe('Proporciones y niebla', () => {
-  it('el personaje cabe holgado dentro de una casilla', () => {
+  it('el personaje cabe holgado dentro de una casilla (~0.3 del ancho del rombo)', () => {
     const p = new Player();
-    expect(p.height / TILE_SIZE).toBeGreaterThan(0.5);
-    expect(p.height / TILE_SIZE).toBeLessThan(0.85);
-    expect(p.width / TILE_SIZE).toBeLessThan(0.55);
+    expect(p.width / TILE_SIZE).toBeGreaterThan(0.2);
+    expect(p.width / TILE_SIZE).toBeLessThan(0.4);
+    expect(p.height / TILE_SIZE).toBeGreaterThan(0.3);
+    expect(p.height / TILE_SIZE).toBeLessThan(0.6);
   });
 
   it('la niebla oscurece mas lo no explorado que lo recordado, y deja intacto lo visible', () => {
