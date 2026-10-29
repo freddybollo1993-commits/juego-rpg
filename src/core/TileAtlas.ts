@@ -3,7 +3,7 @@
 // Each biome has ONE image: a grid of cells, one ROW per terrain type and one COLUMN
 // per visual variant. A cell holds a full 2.5D block: top diamond + left/right faces.
 //
-//   cell size : 72 x 50  (TILE_WIDTH x (TILE_HEIGHT/2 + TILE_HEIGHT/2 + TILE_DEPTH))
+//   cell size : 80 x 56  (TILE_WIDTH x (TILE_HEIGHT + TILE_DEPTH))
 //   anchor    : the top diamond's centre sits at (cellW / 2, anchorY) inside the cell
 //
 // To add art for a biome: drop the PNG in /public/tiles and register it below.
@@ -26,9 +26,9 @@ export interface TileAtlasDef {
 function sheet(biome: string, terrains: string[], variants: number = 3): TileAtlasDef {
   return {
     image: `/tiles/${biome}.png`,
-    cellW: 72,
-    cellH: 50,
-    anchorY: 18,
+    cellW: 80,
+    cellH: 56,
+    anchorY: 20,
     terrains: Object.fromEntries(terrains.map((name, row) => [name, { row, variants }]))
   };
 }
@@ -41,7 +41,7 @@ export const TILE_ATLAS_MANIFEST: Record<string, TileAtlasDef> = {
   swamp:      sheet('swamp',      ['mud_moss', 'toxic_slime', 'deep_mire', 'boundary_cliff']),
   canyon:     sheet('canyon',     ['red_sandstone', 'magma_fissure', 'basalt_gravel', 'boundary_cliff']),
   caverns:    sheet('caverns',    ['dark_slate', 'crystal_cluster', 'abyssal_chasm', 'boundary_cliff']),
-  alien_core: sheet('alien_core', ['precursor_alloy', 'plasma_circuit', 'levitation_ring'])
+  alien_core: sheet('alien_core', ['precursor_alloy', 'plasma_circuit', 'levitation_ring', 'boundary_cliff'])
 };
 
 export class TileAtlas {

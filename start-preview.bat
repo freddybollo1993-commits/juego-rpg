@@ -1,8 +1,8 @@
 @echo off
 set "PATH=C:\Program Files\nodejs;%PATH%"
-title RPG Medieval de Supervivencia Movil - Servidor de Produccion
+title Isla Desconocida - Servidor de Produccion
 echo =====================================================================
-echo   RPG Medieval de Supervivencia Movil (GDD v1.0)
+echo   Isla Desconocida - RPG de supervivencia por turnos
 echo   Iniciando servidor de produccion optimizado...
 echo =====================================================================
 start http://localhost:4173/

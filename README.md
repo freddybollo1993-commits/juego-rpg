@@ -1,52 +1,73 @@
-# RPG Medieval de Supervivencia Móvil
+# Isla Desconocida
 
-Videojuego de supervivencia y acción RPG móvil basado en el Documento de Diseño de Juego (GDD v1.0).
+RPG de supervivencia y exploración **por turnos** en una isla desconocida. Pixel art isométrico 2.5D, ambiente sombrío.
 
-## 🌐 Beta Pública en Vivo
-- **Enlace de Producción (Vercel)**: [https://juego-rpg-eight.vercel.app](https://juego-rpg-eight.vercel.app)
-- **Repositorio Oficial de GitHub**: [https://github.com/freddybollo1993-commits/juego-rpg](https://github.com/freddybollo1993-commits/juego-rpg)
-- **Panel de Control de Vercel**: [https://vercel.com/freddy-loyo/juego-rpg](https://vercel.com/freddy-loyo/juego-rpg)
+## Pilares del diseño
+- **Por turnos, el tiempo avanza con cada acción.** El reloj del mundo no corre solo: mover o esperar consumen minutos de juego (ver `TIME_COST` en [`src/core/TurnSystem.ts`](src/core/TurnSystem.ts)).
+- **Exploración sombría.** Niebla de guerra, oscuridad según la hora y el bioma, y un halo de luz alrededor del jugador.
+- **Cada bioma es un grupo de mapas** (exterior, poblados, cuevas, mazmorras), enlazados por entradas. Solo existe en memoria el mapa activo, así que sumar mapas no pesa. *(Hoy cada bioma es un único mapa; el sistema de portales es el siguiente paso.)*
+- **Pixel art.** El arte actual es provisional y se reemplaza sin tocar código (ver "Arte").
 
-Cualquier cambio que se suba a la rama `main` de GitHub se desplegará automáticamente en Vercel en cuestión de segundos.
+## Estado actual
+Base limpia, sin sistemas de combate, objetos ni misiones todavía. Lo que hay:
 
-## 🚀 Inicio Rápido Local
+| | |
+|---|---|
+| Mapa | **64×64** casillas por bioma |
+| Casilla | **80×40 px** (rombo 2:1) + 16 px de grosor |
+| Biomas | Orilla del Naufragio, Meseta Helada, Taiga, Ciénaga, Cañón, Abismo, Núcleo del Impacto |
+| Mundo | Terreno generado con ruido suave (mismo bioma = mismo mapa), escenografía decorativa, clima, niebla de guerra |
+| Reloj | Día/noche por turnos, 10 min de juego por acción |
+| Guardado | Automático en cada turno (bioma, posición, turno, hora) |
 
-```powershell
-$env:PATH = "C:\Program Files\nodejs;" + $env:PATH
-npm run dev
+El código de combate, enemigos, jefe, misiones, talentos, crafteo, tribus y modales anteriores se retiró. **Sigue disponible** en la etiqueta de git `pre-limpieza`:
+
+```bash
+git show pre-limpieza:src/entities/Enemy.ts      # ver un archivo viejo
+git checkout pre-limpieza -- src/entities/Boss.ts # recuperarlo
 ```
 
-O para compilar y servir la versión optimizada de producción:
-```powershell
-$env:PATH = "C:\Program Files\nodejs;" + $env:PATH
-npm run build
-npm run preview
+## Cómo ejecutarlo
+```bash
+npm install
+npm run dev        # desarrollo en http://localhost:5173
+npm run build      # compilar
+npm test           # pruebas
+```
+También con [`start.bat`](start.bat) (desarrollo) o [`start-preview.bat`](start-preview.bat) (versión compilada) en Windows.
+
+Para abrir un bioma concreto: `http://localhost:5173/?biome=frost` (`beach`, `frost`, `forest`, `swamp`, `canyon`, `caverns`, `alien_core`).
+
+## Controles
+| | |
+|---|---|
+| Mover | D-Pad en pantalla · `W A S D` / flechas (ejes) · `Q E Z C` (diagonales) · tocar una casilla |
+| Esperar un turno | botón ⏳ · `Espacio` · `.` · tocar la propia casilla |
+
+## Estructura
+```
+src/
+  core/      Game (bucle), IsometricGrid, TileAtlas, PropAtlas, DecorLayer, TurnSystem
+  entities/  Player
+  systems/   DayNightCycle, WeatherSystem, SaveSystem  (+ __tests__)
+  data/      regions (los 7 biomas)
+  ui/        HUD
+  audio/     SoundManager (pasos y ambiente procedural)
+public/
+  tiles/     Atlas de suelo por bioma (80×56 px por celda)
+  props/     Atlas de escenografía por bioma (64×80 px por celda)
+tools/       Generadores de arte provisional (node tools/generate-placeholder-*.mjs)
+blender/     Rig de Blender para renderizar criaturas en el ángulo exacto del juego
+docs/        Biblia de arte, bestiario por bioma y plantilla guía de criaturas
 ```
 
-El servidor estará disponible en `http://localhost:4173/` o en tu navegador móvil dentro de la misma red Wi-Fi.
+## Arte
+- **Suelo y escenografía:** cada bioma tiene un PNG (`public/tiles/<bioma>.png`, `public/props/<bioma>.png`) con una fila por tipo y 3 variantes por fila. Para poner arte propio basta con reemplazar el PNG respetando el diseño de celdas (detalle en [`TileAtlas.ts`](src/core/TileAtlas.ts) y [`PropAtlas.ts`](src/core/PropAtlas.ts)). Si falta la imagen de un suelo se dibujan bloques de color plano; si falta la de escenografía, simplemente no aparece.
+- **Criaturas:** [`blender/`](blender/README.md) contiene un rig con la cámara fija (3/4, 18° de inclinación) y render con transparencia real.
+- **Referencias:** [`docs/creature-template-guide.png`](docs/creature-template-guide.png), [`docs/CREATURE_BESTIARY_BY_BIOME.md`](docs/CREATURE_BESTIARY_BY_BIOME.md) y [`docs/WORLD_ART_BIBLE_AND_ENVIRONMENT_DESIGN.md`](docs/WORLD_ART_BIBLE_AND_ENVIRONMENT_DESIGN.md). Son documentos de diseño de la visión anterior; úsalos como inspiración de ambientación y paleta.
 
-## 🌟 Características Implementadas
-1. **Prólogo del Naufragio**: Despertar en la costa con hipotermia, recolección de leña, encendido de fogata y enigma de la Roca Ancestral.
-2. **7 Grandes Regiones Autónomas**:
-   - Orilla del Naufragio (Tutorial)
-   - La Meseta Helada de la Escarcha (Tundra / Alta Montaña)
-   - La Taiga Ancestral (Bosque Profundo)
-   - La Ciénaga Negruzca (Pantano Venenoso)
-   - El Cañón de las Cenizas (Estepa Árida y Yermos)
-   - El Abismo Subterráneo (Cavernas de Penumbra)
-   - El Núcleo del Impacto (Arena del Clímax Extraterrestre)
-3. **Puntos de Transición (Chokepoints)**: Pantallas de carga inmersivas de 2.5s con folclore local y consejos para optimizar la memoria en dispositivos móviles.
-4. **Sistema de Afinidad y Habilidades Tribales**:
-   - 5 Tribus autóctonas con diálogos, pruebas de iniciación y tributos.
-   - 5 Habilidades únicas (Corazón de Escarcha, Zancada de Canopia, Adaptación a Toxinas, Resistencia de Camélido, Agarre Férreo y Visión Espectral).
-   - Límite estricto de 3 ranuras rúnicas sintonizables únicamente en fogatas o tótems.
-5. **Objetos Especiales Efímeros y Ventana de Sacrificio Anti-Exploit**:
-   - Almacenamiento inerte en el Relicario.
-   - Temporizador activo al equipar en el marco rúnico del HUD.
-   - Ventana crítica de 8-10 segundos con anillo carmesí para autodestrucción instantánea de potencia masiva.
-   - Bloqueo sonoro rúnico definitivo tras 10 segundos.
-6. **Jefe Final: El Heraldo de las Estrellas**:
-   - 4 fases dinámicas de alteración climática (Criogénica, Miasma Tóxico, Térmica Volcánica, Penumbra Gravitacional).
-   - Escudos deflectores y vulnerabilidad al sacrificio de artefactos efímeros.
-   - Finales ramificados: Desmantelar tecnología vs Integrar biotecnología.
-7. **Diseño Sonoro Procedural**: Sintetizador Web Audio API para música ambiental por bioma, sonido de tormentas, pisadas, fogatas, combate, latido rúnico y detonación.
+## Siguientes pasos
+1. Sistema de mapas con portales (poblados, cuevas y mazmorras como espacios propios dentro de cada bioma).
+2. Recursos, inventario y supervivencia por turnos (hambre, sed, frío).
+3. Criaturas y combate por turnos sobre la nueva base.
+4. Arte final en pixel art para tiles, escenografía y criaturas.

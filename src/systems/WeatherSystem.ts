@@ -1,4 +1,4 @@
-// WeatherSystem.ts - Dynamic Atmospheric Weather & Particle Renderer (GDD Sec. 8.2 & 9.3)
+// WeatherSystem.ts - Clima atmosferico y particulas por bioma
 
 export interface WeatherParticle {
   x: number;

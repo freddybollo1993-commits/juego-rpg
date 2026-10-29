@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SaveSystem, GameSaveData } from '../SaveSystem';
-import LZString from 'lz-string';
+import { SaveSystem } from '../SaveSystem';
 
 const storageMock: Record<string, string> = {};
 if (typeof globalThis.localStorage === 'undefined') {
@@ -14,85 +13,44 @@ if (typeof globalThis.localStorage === 'undefined') {
   };
 }
 
-describe('SaveSystem con Compresión LZString', () => {
-  beforeEach(() => {
-    localStorage.clear();
-  });
+const sample = {
+  regionId: 'forest',
+  player: { gx: 31, gy: 40, facing: 'left' },
+  turn: 57,
+  timeOfDay: 19.25,
+  day: 3
+};
 
-  const mockSaveData: GameSaveData = {
-    version: 1,
-    timestamp: 1720000000000,
-    currentRegionId: 'shipwreck_shore',
-    player: {
-      x: 150,
-      y: 200,
-      facing: 'down',
-      vitals: {
-        health: 95,
-        stamina: 80,
-        hunger: 60,
-        thirst: 70,
-        bodyTemp: 48,
-        toxicity: 0,
-      },
-      inventory: [
-        { itemId: 'driftwood', count: 4 },
-        { itemId: 'flint_stone', count: 2 },
-      ],
-      reliquary: ['ancient_shard'],
-      activeEphemeral: null,
-      unlockedAbilities: ['frost_heart'],
-      equippedAbilities: ['frost_heart'],
-      unlockedFourthSkillSlot: false,
-    },
-    tribes: {
-      tundra: {
-        reputation: 25,
-        trialCurrent: 1,
-        trialCompleted: false,
-        tributeDelivered: false,
-        resonatorDelivered: false,
-      },
-    },
-    bossDefeated: false,
-  };
+describe('SaveSystem', () => {
+  beforeEach(() => localStorage.clear());
 
-  it('debe comprimir y guardar en localStorage con ratio de compresión alto', () => {
-    const rawJson = JSON.stringify(mockSaveData);
-    const compressed = LZString.compressToUTF16(rawJson);
-    localStorage.setItem('juego_rpg_medieval_save_v1', compressed);
-
+  it('guarda y carga la partida completa', () => {
+    expect(SaveSystem.save(sample)).toBe(true);
     const loaded = SaveSystem.load();
     expect(loaded).not.toBeNull();
-    expect(loaded?.currentRegionId).toBe('shipwreck_shore');
-    expect(loaded?.player.vitals.health).toBe(95);
-    expect(loaded?.player.inventory.length).toBe(2);
+    expect(loaded!.regionId).toBe('forest');
+    expect(loaded!.player).toEqual(sample.player);
+    expect(loaded!.turn).toBe(57);
+    expect(loaded!.timeOfDay).toBeCloseTo(19.25);
+    expect(loaded!.day).toBe(3);
   });
 
-  it('debe exportar e importar códigos de guardado comprimidos en Base64', () => {
-    const rawJson = JSON.stringify(mockSaveData);
-    localStorage.setItem('juego_rpg_medieval_save_v1', LZString.compressToUTF16(rawJson));
-
-    const code = SaveSystem.exportSaveCode();
-    expect(code).toBeTypeOf('string');
-    expect(code?.length).toBeGreaterThan(10);
-
-    // Limpiar localStorage y restaurar vía código
-    localStorage.clear();
-    const importSuccess = SaveSystem.importSaveCode(code!);
-    expect(importSuccess).toBe(true);
-
-    const restored = SaveSystem.load();
-    expect(restored?.player.vitals.hunger).toBe(60);
-    expect(restored?.player.inventory[0].itemId).toBe('driftwood');
+  it('devuelve null si no hay partida o esta danada', () => {
+    expect(SaveSystem.load()).toBeNull();
+    localStorage.setItem('juego_rpg_save_v2', 'esto no es una partida valida');
+    expect(SaveSystem.load()).toBeNull();
   });
 
-  it('debe mantener compatibilidad retrospectiva con partidas sin comprimir', () => {
-    const legacyJson = JSON.stringify(mockSaveData);
-    localStorage.setItem('juego_rpg_medieval_save_v1', legacyJson);
+  it('descarta la partida del formato viejo y la borra al guardar', () => {
+    localStorage.setItem('juego_rpg_medieval_save_v1', '{"version":1}');
+    expect(SaveSystem.load()).toBeNull();
+    SaveSystem.save(sample);
+    expect(localStorage.getItem('juego_rpg_medieval_save_v1')).toBeNull();
+  });
 
-    const loaded = SaveSystem.load();
-    expect(loaded).not.toBeNull();
-    expect(loaded?.player.vitals.thirst).toBe(70);
+  it('clearSave borra la partida', () => {
+    SaveSystem.save(sample);
+    SaveSystem.clearSave();
+    expect(SaveSystem.load()).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 {
-  "name": "RPG Medieval: Supervivencia Móvil",
-  "short_name": "RPG Medieval",
-  "description": "RPG Medieval de Supervivencia Móvil con habilidades tribales, objetos efímeros y combate alienígena.",
+  "name": "Isla Desconocida: Supervivencia por Turnos",
+  "short_name": "Isla Desconocida",
+  "description": "RPG de supervivencia y exploración por turnos en una isla desconocida.",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "any",
@@ -9,7 +9,7 @@
   "theme_color": "#d4af37",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230f172a'/><text x='50%' y='55%' font-size='60' dominant-baseline='middle' text-anchor='middle'>⚔️</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230f172a'/><text x='50%' y='55%' font-size='60' dominant-baseline='middle' text-anchor='middle'>🧭</text></svg>",
       "sizes": "192x192 512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"

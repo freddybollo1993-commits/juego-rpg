@@ -1,20 +1,22 @@
-// DayNightCycle.ts - Dynamic Atmospheric Lighting & 24h Planetary Cycle (Fase 3.2)
+// DayNightCycle.ts - Reloj del mundo. El tiempo NO corre solo: avanza unicamente cuando
+// el jugador realiza una accion (ver TurnSystem), cada accion cuesta unos minutos de juego.
 
 export type TimePhase = 'dawn' | 'day' | 'dusk' | 'night';
 
+export const START_HOUR = 7.5; // el naufrago despierta al amanecer
+
 export class DayNightCycle {
-  // Time represented in hours (0.00 to 24.00). Defaults to early morning (07:30)
-  public timeOfDay: number = 7.5;
-  // A full 24h in-game day lasts 720 real seconds (12 minutes)
-  public timeScale: number = 24 / 720; // 0.0333 hours per real second
-  public isPaused: boolean = false;
+  /** Hora del dia en horas decimales (0.00 a 24.00) */
+  public timeOfDay: number = START_HOUR;
+  /** Dias completos transcurridos desde el inicio (el primer dia es 1) */
+  public dayCount: number = 1;
 
-  public update(delta: number) {
-    if (this.isPaused) return;
-
-    this.timeOfDay += delta * this.timeScale;
-    if (this.timeOfDay >= 24) {
+  /** Avanza el reloj por una accion del jugador */
+  public advanceMinutes(minutes: number) {
+    this.timeOfDay += minutes / 60;
+    while (this.timeOfDay >= 24) {
       this.timeOfDay -= 24;
+      this.dayCount++;
     }
   }
 
@@ -30,8 +32,7 @@ export class DayNightCycle {
   }
 
   public getPhaseIcon(): string {
-    const phase = this.getPhase();
-    switch (phase) {
+    switch (this.getPhase()) {
       case 'dawn': return '🌅';
       case 'day': return '☀️';
       case 'dusk': return '🌇';
@@ -40,70 +41,39 @@ export class DayNightCycle {
   }
 
   public getTimeString(): string {
-    const totalMinutes = Math.floor(this.timeOfDay * 60);
+    // round, not floor: 8.1666...h * 60 = 489.99999 would otherwise show 08:09 instead of 08:10
+    const totalMinutes = Math.round(this.timeOfDay * 60) % (24 * 60);
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-    const padH = hours.toString().padStart(2, '0');
-    const padM = minutes.toString().padStart(2, '0');
-    return `${padH}:${padM}`;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   }
 
   /**
-   * Ambient darkness alpha value for the full-screen lighting mask
-   * 0.0 = bright midday, 0.88 = pitch-black midnight
+   * Oscuridad ambiental para la mascara de iluminacion
+   * 0.0 = mediodia, 0.86 = medianoche
    */
   public getAmbientDarkness(): number {
     const phase = this.getPhase();
-    if (phase === 'day') {
-      return 0.0;
-    }
+    if (phase === 'day') return 0.0;
     if (phase === 'dawn') {
-      // 5.0 (0.75 darkness) -> 8.0 (0.0 darkness)
       const prog = (this.timeOfDay - 5.0) / 3.0;
       return (1.0 - prog) * 0.72;
     }
     if (phase === 'dusk') {
-      // 17.5 (0.0 darkness) -> 20.5 (0.78 darkness)
       const prog = (this.timeOfDay - 17.5) / 3.0;
       return prog * 0.78;
     }
-    // Night (20.5 to 5.0)
     return 0.86;
   }
 
-  /**
-   * Ambient atmospheric color tint (rgba)
-   */
-  public getAmbientColor(): string {
-    const phase = this.getPhase();
-    if (phase === 'dawn') {
-      return 'rgba(251, 146, 60, 0.18)'; // Rosy dawn orange
-    }
-    if (phase === 'day') {
-      return 'rgba(255, 255, 255, 0)';
-    }
-    if (phase === 'dusk') {
-      return 'rgba(225, 29, 72, 0.22)'; // Deep purple-red dusk
-    }
-    return 'rgba(15, 23, 42, 0.88)'; // Deep midnight navy
-  }
-
-  /**
-   * Cold penalty multiplier: at night, body temperature decays 2.2x faster without heat
-   */
-  public getTemperatureDecayMultiplier(): number {
-    return this.isNight() ? 2.2 : 1.0;
-  }
-
-  /**
-   * Night-time hunting grants +35% XP bonus due to dangerous apex predators
-   */
-  public getXPMultiplier(): number {
-    return this.isNight() ? 1.35 : 1.0;
-  }
-
-  public setTimeOfDay(hours: number) {
+  public setTime(hours: number, day: number = this.dayCount) {
     this.timeOfDay = Math.max(0, Math.min(23.99, hours));
+    this.dayCount = Math.max(1, Math.floor(day));
+  }
+
+  public reset() {
+    this.timeOfDay = START_HOUR;
+    this.dayCount = 1;
   }
 }
 

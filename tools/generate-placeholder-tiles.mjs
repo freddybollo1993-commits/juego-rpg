@@ -1,7 +1,7 @@
 // generate-placeholder-tiles.mjs
 // Writes PLACEHOLDER ground-tile atlases for every biome to public/tiles/<biome>.png.
 // Layout must match TILE_ATLAS_MANIFEST in src/core/TileAtlas.ts
-// (72x50 cells, one row per terrain in the order listed below, 3 variant columns).
+// (80x56 cells, one row per terrain in the order listed below, 3 variant columns).
 // Replace any PNG with real art whenever it is ready - no code changes needed as long
 // as the layout stays the same.
 //
@@ -12,12 +12,12 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const CELL_W = 72;
-const CELL_H = 50;
-const ANCHOR_Y = 18;
-const HALF_W = 36;
-const HALF_H = 18;
-const DEPTH = 14;
+const CELL_W = 80;
+const CELL_H = 56;
+const ANCHOR_Y = 20;
+const HALF_W = 40;
+const HALF_H = 20;
+const DEPTH = 16;
 const VARIANTS = 3;
 
 const hex = (h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255];
@@ -68,7 +68,8 @@ const BIOMES = {
   alien_core: [
     t('precursor_alloy', 0x12212b, 0x0d1820, 0x091117, 0x1f3a4a),
     t('plasma_circuit', 0x0e3846, 0x092731, 0x061a21, 0x14566a, { color: 0x00f5d4, kind: 'lines' }),
-    t('levitation_ring', 0x23395b, 0x18273f, 0x101b2c, 0x3a5a8c, { color: 0x4cc9f0, kind: 'dots' })
+    t('levitation_ring', 0x23395b, 0x18273f, 0x101b2c, 0x3a5a8c, { color: 0x4cc9f0, kind: 'dots' }),
+    t('boundary_cliff', 0x16303d, 0x0f2029, 0x09151c, 0x2a5668)
   ]
 };
 

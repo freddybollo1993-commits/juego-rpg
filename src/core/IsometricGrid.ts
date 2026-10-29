@@ -13,19 +13,53 @@ export interface IsoTile {
   accentVariant: number;
 }
 
-export class IsometricGrid {
-  public static readonly TILE_WIDTH = 72;
-  public static readonly TILE_HEIGHT = 36;
-  public static readonly TILE_DEPTH = 14; // 2.5D prism block height
+/** Deterministic lattice hash -> [0, 1) */
+function hash2(ix: number, iy: number, seed: number): number {
+  let h = (ix * 374761393 + iy * 668265263 + seed * 2147483647) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
 
-  public cols: number = 24;
-  public rows: number = 24;
+/** Smooth value noise in [0, 1] */
+function valueNoise(x: number, y: number, seed: number): number {
+  const ix = Math.floor(x);
+  const iy = Math.floor(y);
+  const fx = x - ix;
+  const fy = y - iy;
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const a = hash2(ix, iy, seed);
+  const b = hash2(ix + 1, iy, seed);
+  const c = hash2(ix, iy + 1, seed);
+  const d = hash2(ix + 1, iy + 1, seed);
+  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+}
+
+/** Two-octave fractal noise, centred and scaled to roughly [-1, 1] */
+function terrainNoise(gx: number, gy: number, seed: number): number {
+  const v = valueNoise(gx * 0.085, gy * 0.085, seed) * 0.68 + valueNoise(gx * 0.21, gy * 0.21, seed + 101) * 0.32;
+  return (v - 0.5) * 2.4;
+}
+
+function seedFromString(s: string): number {
+  let h = 17;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h | 0;
+}
+
+export class IsometricGrid {
+  public static readonly TILE_WIDTH = 80;
+  public static readonly TILE_HEIGHT = 40;
+  public static readonly TILE_DEPTH = 16; // 2.5D prism block height
+  public static readonly DEFAULT_SIZE = 64;
+
+  public cols: number = IsometricGrid.DEFAULT_SIZE;
+  public rows: number = IsometricGrid.DEFAULT_SIZE;
   public tiles: IsoTile[][] = [];
   public hoveredTile: { gx: number; gy: number } | null = null;
   public targetTile: { gx: number; gy: number } | null = null;
-  public dangerTiles: { gx: number; gy: number; label: string }[] = [];
 
-  constructor(cols: number = 24, rows: number = 24) {
+  constructor(cols: number = IsometricGrid.DEFAULT_SIZE, rows: number = IsometricGrid.DEFAULT_SIZE) {
     this.cols = cols;
     this.rows = rows;
   }
@@ -52,12 +86,13 @@ export class IsometricGrid {
   public generateForRegion(region: RegionData) {
     this.tiles = [];
     const biome = region.biomeType;
+    const seed = seedFromString(region.id);
 
     for (let gx = 0; gx < this.cols; gx++) {
       this.tiles[gx] = [];
       for (let gy = 0; gy < this.rows; gy++) {
-        // Deterministic pseudo-random terrain generation based on coordinates
-        const noise = Math.sin(gx * 0.45) * Math.cos(gy * 0.45);
+        // Deterministic smooth noise: same region id -> same terrain, no visible repetition
+        const noise = terrainNoise(gx, gy, seed);
         const edgeDist = Math.min(gx, this.cols - 1 - gx, gy, this.rows - 1 - gy);
 
         let terrainType = 'primary';
@@ -76,8 +111,8 @@ export class IsometricGrid {
           }
         } else {
           // Inner regional terrain
-          if (noise > 0.45 && edgeDist < 6) {
-            elevation = 1; // 2.5D raised plateau
+          if (noise > 0.5 && edgeDist < 10) {
+            elevation = 1; // 2.5D raised ridge along the map border
           }
 
           if (biome === 'beach') {
@@ -111,14 +146,8 @@ export class IsometricGrid {
     }
   }
 
-  /** Update Fog of War based on player position, torch and campfires */
-  public updateFogOfWar(
-    playerGx: number,
-    playerGy: number,
-    sightRadius: number,
-    campfires: { gx: number; gy: number; isLit: boolean }[] = []
-  ) {
-    // 1. Demote previous visible tiles to explored
+  /** Update Fog of War: tiles seen last turn become "explored", then reveal the new sight circle */
+  public updateFogOfWar(playerGx: number, playerGy: number, sightRadius: number) {
     for (let gx = 0; gx < this.cols; gx++) {
       for (let gy = 0; gy < this.rows; gy++) {
         if (this.tiles[gx][gy].visibility === 2) {
@@ -126,16 +155,7 @@ export class IsometricGrid {
         }
       }
     }
-
-    // 2. Reveal player sight circle
     this.revealCircle(playerGx, playerGy, sightRadius);
-
-    // 3. Reveal campfires radius
-    for (const fire of campfires) {
-      if (fire.isLit) {
-        this.revealCircle(fire.gx, fire.gy, 4.5);
-      }
-    }
   }
 
   private revealCircle(centerX: number, centerY: number, radius: number) {
@@ -203,19 +223,6 @@ export class IsometricGrid {
         const isDim = tile.visibility === 1; // Explored but not in current sight
         this.drawTileSlab(ctx, px, py, halfW, halfH, depth, tile, region, isDim);
 
-        // Highlight Telegraphed Danger Tile (Turn-based enemy warning)
-        const isDanger = this.dangerTiles.find(d => d.gx === gx && d.gy === gy);
-        if (isDanger) {
-          const pulseAlpha = Math.sin(Date.now() * 0.008) * 0.25 + 0.6;
-          this.drawTileOutline(ctx, px, py, halfW, halfH, `rgba(239, 68, 68, ${pulseAlpha})`, 3);
-          ctx.fillStyle = `rgba(239, 68, 68, ${pulseAlpha * 0.35})`;
-          this.fillDiamond(ctx, px, py, halfW, halfH);
-          ctx.fillStyle = '#fee2e2';
-          ctx.font = 'bold 9px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(`⚠️ ${isDanger.label}`, px, py + 3);
-        }
-
         // Highlight hovered tile
         if (this.hoveredTile && this.hoveredTile.gx === gx && this.hoveredTile.gy === gy) {
           this.drawTileOutline(ctx, px, py, halfW, halfH, 'rgba(255, 215, 0, 0.8)', 2.5);
@@ -227,16 +234,6 @@ export class IsometricGrid {
         }
       }
     }
-  }
-
-  private fillDiamond(ctx: CanvasRenderingContext2D, px: number, py: number, halfW: number, halfH: number) {
-    ctx.beginPath();
-    ctx.moveTo(px, py - halfH);
-    ctx.lineTo(px + halfW, py);
-    ctx.lineTo(px, py + halfH);
-    ctx.lineTo(px - halfW, py);
-    ctx.closePath();
-    ctx.fill();
   }
 
   /** Draw an individual 2.5D Isometric Tile Block (Top Diamond + Left/Right Shaded Facets) */

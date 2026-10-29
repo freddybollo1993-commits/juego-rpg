@@ -5,7 +5,7 @@ import { PROP_ATLAS_MANIFEST } from '../../core/PropAtlas';
 import { REGIONS_DATA } from '../../data/regions';
 
 function buildGrid(regionId: string) {
-  const grid = new IsometricGrid(24, 24);
+  const grid = new IsometricGrid();
   grid.generateForRegion(REGIONS_DATA[regionId]);
   return grid;
 }
@@ -34,14 +34,14 @@ describe('DecorLayer (visual scenery props)', () => {
       const region = REGIONS_DATA[regionId];
       const grid = buildGrid(regionId);
       const decor = new DecorLayer();
-      const blocked = new Set(['12,10', '13,12']);
-      decor.generate(grid, region, blocked, [{ gx: 12, gy: 12 }, { gx: 22, gy: 12 }]);
+      const blocked = new Set(['32,30', '33,32']);
+      decor.generate(grid, region, blocked, [{ gx: 32, gy: 32 }, { gx: 50, gy: 32 }]);
 
       for (const p of decor.props) {
         expect(grid.tiles[p.gx][p.gy].passable).toBe(true);
         expect(blocked.has(`${p.gx},${p.gy}`)).toBe(false);
-        expect(Math.abs(p.gx - 12) <= 1 && Math.abs(p.gy - 12) <= 1).toBe(false);
-        expect(Math.abs(p.gx - 22) <= 1 && Math.abs(p.gy - 12) <= 1).toBe(false);
+        expect(Math.abs(p.gx - 32) <= 1 && Math.abs(p.gy - 32) <= 1).toBe(false);
+        expect(Math.abs(p.gx - 50) <= 1 && Math.abs(p.gy - 32) <= 1).toBe(false);
       }
     }
   });
@@ -52,8 +52,8 @@ describe('DecorLayer (visual scenery props)', () => {
       const region = REGIONS_DATA[regionId];
       const decor = new DecorLayer();
       decor.generate(buildGrid(regionId), region, new Set(), []);
-      expect(decor.props.length, regionId).toBeGreaterThan(15);
-      expect(decor.props.length, regionId).toBeLessThan(160);
+      expect(decor.props.length, regionId).toBeGreaterThan(100);
+      expect(decor.props.length, regionId).toBeLessThan(1500);
       seen.add(region.biomeType);
     }
     expect(seen.size).toBeGreaterThanOrEqual(7);
