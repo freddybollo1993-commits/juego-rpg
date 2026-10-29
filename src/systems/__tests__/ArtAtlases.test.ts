@@ -5,7 +5,7 @@ import { inflateSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { TILE_ATLAS_MANIFEST } from '../../core/TileAtlas';
 import { PROP_ATLAS_MANIFEST } from '../../core/PropAtlas';
-import { TILE_SIZE } from '../../core/Metrics';
+import { TILE_WIDTH, TILE_HEIGHT } from '../../core/Metrics';
 import { Player } from '../../entities/Player';
 import { SHADE_ALPHA, shadeForVisibility } from '../../core/Shade';
 
@@ -45,37 +45,39 @@ describe('Atlas de arte: los PNG deben coincidir con sus manifiestos', () => {
     }
   });
 
-  it('las celdas de suelo miden TILE_SIZE x TILE_SIZE (el rombo 1:1 inscrito)', () => {
+  it('las celdas de suelo miden TILE_WIDTH x TILE_HEIGHT (rombo 2:1)', () => {
     for (const def of Object.values(TILE_ATLAS_MANIFEST)) {
-      expect(def.cellW).toBe(TILE_SIZE);
-      expect(def.cellH).toBe(TILE_SIZE);
+      expect(def.cellW).toBe(TILE_WIDTH);
+      expect(def.cellH).toBe(TILE_HEIGHT);
+      expect(def.cellW / def.cellH).toBe(2);
     }
   });
 
-  it('cada celda de suelo es un rombo: esquinas transparentes y aristas sin huecos', () => {
-    const half = TILE_SIZE / 2;
+  it('cada celda de suelo es un rombo 2:1: esquinas transparentes y aristas sin huecos', () => {
+    const halfW = TILE_WIDTH / 2;
+    const halfH = TILE_HEIGHT / 2;
     for (const [biome, def] of Object.entries(TILE_ATLAS_MANIFEST)) {
       const alpha = pngAlphaReader(def.image);
       const rows = Object.keys(def.terrains).length;
       const variants = Object.values(def.terrains)[0].variants;
       for (let row = 0; row < rows; row++) {
         for (let v = 0; v < variants; v++) {
-          const ox = v * TILE_SIZE;
-          const oy = row * TILE_SIZE;
+          const ox = v * TILE_WIDTH;
+          const oy = row * TILE_HEIGHT;
           const where = `${biome} fila ${row} variante ${v}`;
 
           // las 4 esquinas de la celda son transparentes
-          for (const [x, y] of [[0, 0], [TILE_SIZE - 1, 0], [0, TILE_SIZE - 1], [TILE_SIZE - 1, TILE_SIZE - 1]]) {
+          for (const [x, y] of [[0, 0], [TILE_WIDTH - 1, 0], [0, TILE_HEIGHT - 1], [TILE_WIDTH - 1, TILE_HEIGHT - 1]]) {
             expect(alpha(ox + x, oy + y), `${where} esquina ${x},${y}`).toBe(0);
           }
-          // el centro y los vertices del rombo (donde toca el borde de la celda) son opacos
-          for (const [x, y] of [[half, half], [half - 1, 0], [half, 0], [half - 1, TILE_SIZE - 1], [0, half - 1], [TILE_SIZE - 1, half]]) {
+          // el centro y los 4 vertices del rombo (donde toca el borde de la celda) son opacos
+          for (const [x, y] of [[halfW, halfH], [halfW - 1, 0], [halfW, 0], [halfW - 1, TILE_HEIGHT - 1], [halfW, TILE_HEIGHT - 1], [0, halfH - 1], [0, halfH], [TILE_WIDTH - 1, halfH - 1], [TILE_WIDTH - 1, halfH]]) {
             expect(alpha(ox + x, oy + y), `${where} punto ${x},${y}`).toBe(255);
           }
-          // sin huecos: todo pixel con |dx| + |dy| <= mitad es opaco (asi las casillas vecinas se solapan, no se separan)
-          for (let y = 0; y < TILE_SIZE; y++) {
-            for (let x = 0; x < TILE_SIZE; x++) {
-              const inside = Math.abs(x + 0.5 - half) + Math.abs(y + 0.5 - half) <= half;
+          // sin huecos: todo pixel cuyo centro cae dentro del rombo es opaco (las casillas vecinas se solapan, no se separan)
+          for (let y = 0; y < TILE_HEIGHT; y++) {
+            for (let x = 0; x < TILE_WIDTH; x++) {
+              const inside = Math.abs(x + 0.5 - halfW) / halfW + Math.abs(y + 0.5 - halfH) / halfH <= 1;
               if (inside) expect(alpha(ox + x, oy + y), `${where} hueco en ${x},${y}`).toBe(255);
             }
           }
@@ -94,12 +96,12 @@ describe('Atlas de arte: los PNG deben coincidir con sus manifiestos', () => {
 });
 
 describe('Proporciones y niebla', () => {
-  it('el personaje cabe holgado dentro de una casilla (~0.3 del ancho del rombo)', () => {
+  it('el personaje cabe holgado dentro de una casilla (~0.3 del ancho de la casilla)', () => {
     const p = new Player();
-    expect(p.width / TILE_SIZE).toBeGreaterThan(0.2);
-    expect(p.width / TILE_SIZE).toBeLessThan(0.4);
-    expect(p.height / TILE_SIZE).toBeGreaterThan(0.3);
-    expect(p.height / TILE_SIZE).toBeLessThan(0.6);
+    expect(p.width / TILE_WIDTH).toBeGreaterThan(0.2);
+    expect(p.width / TILE_WIDTH).toBeLessThan(0.4);
+    expect(p.height / TILE_WIDTH).toBeGreaterThan(0.3);
+    expect(p.height / TILE_WIDTH).toBeLessThan(0.6);
   });
 
   it('la niebla oscurece mas lo no explorado que lo recordado, y deja intacto lo visible', () => {

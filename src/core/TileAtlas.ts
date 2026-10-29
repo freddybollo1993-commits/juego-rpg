@@ -1,15 +1,15 @@
 // TileAtlas.ts - Hojas de suelo por bioma (con respaldo a color plano si falta la imagen)
 //
 // Cada bioma tiene UNA imagen: una fila por tipo de terreno y una columna por variante.
-// Cada casilla es un cuadrado perfecto girado 45 grados: un rombo de TILE_SIZE x TILE_SIZE (ver
-// Metrics.ts) inscrito en una celda cuadrada del mismo tamano; las 4 esquinas de la celda quedan
-// transparentes. El rombo llega hasta el borde de la celda y no lleva sombras ni luces en el
-// contorno, para que las casillas vecinas se unan sin costuras.
+// Cada casilla es un rombo isometrico 2:1 de TILE_WIDTH x TILE_HEIGHT (ver Metrics.ts) que ocupa
+// toda la celda; las 4 esquinas de la celda quedan transparentes. El rombo llega hasta el borde
+// de la celda y no lleva sombras ni luces en el contorno, para que las casillas vecinas se unan
+// sin costuras.
 //
 // Para poner arte propio: reemplazar public/tiles/<bioma>.png respetando este diseno.
 
 import { ShadeLevel, buildShadedSheets } from './Shade';
-import { TILE_SIZE } from './Metrics';
+import { TILE_WIDTH, TILE_HEIGHT } from './Metrics';
 
 export interface TileAtlasTerrain {
   row: number;      // fila dentro de la hoja
@@ -27,8 +27,8 @@ export interface TileAtlasDef {
 function sheet(biome: string, terrains: string[], variants: number = 3): TileAtlasDef {
   return {
     image: `/tiles/${biome}.png`,
-    cellW: TILE_SIZE,
-    cellH: TILE_SIZE,
+    cellW: TILE_WIDTH,
+    cellH: TILE_HEIGHT,
     terrains: Object.fromEntries(terrains.map((name, row) => [name, { row, variants }]))
   };
 }

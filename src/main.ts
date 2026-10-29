@@ -4,6 +4,7 @@ import './style.css';
 import { Game } from './core/Game';
 import { soundManager } from './audio/SoundManager';
 import { SaveSystem } from './systems/SaveSystem';
+import { bindCanvasGestures } from './ui/Gestures';
 
 function initApp() {
   const container = document.getElementById('app-container') as HTMLElement;
@@ -114,17 +115,25 @@ function initApp() {
   bindTouchOrClick('btn-dpad-dr', () => game.stepPlayer(1, 0));
   bindTouchOrClick('btn-dpad-wait', () => game.waitPlayer());
 
-  // Toque / clic en el mapa: da un paso hacia esa casilla (o espera si es la propia)
-  canvas.addEventListener('click', (e) => game.handleCanvasClick(e.clientX, e.clientY));
-  canvas.addEventListener('mousemove', (e) => game.handleCanvasHover(e.clientX, e.clientY));
+  // Mapa: tocar = caminar hasta esa casilla (o esperar si es la propia), arrastrar = mover la vista,
+  // pellizcar / rueda = zoom
+  bindCanvasGestures(canvas, game);
+
+  // Zoom y centrado de la camara
+  bindTouchOrClick('btn-zoom-in', () => game.zoomBy(1.25));
+  bindTouchOrClick('btn-zoom-out', () => game.zoomBy(1 / 1.25));
+  bindTouchOrClick('btn-recenter', () => game.recenterCamera());
 
   // Teclado (direcciones en pantalla): WASD / flechas = arriba, abajo, izquierda, derecha;
-  // Q E Z C = las 4 diagonales; Espacio o . = esperar
+  // Q E Z C = las 4 diagonales; Espacio o . = esperar; + / - = zoom; R = centrar la vista
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     if (e.key === 'Escape') { closePanel(); return; }
 
     switch (e.key.toLowerCase()) {
+      case '+': case '=': game.zoomBy(1.25); break;
+      case '-': game.zoomBy(1 / 1.25); break;
+      case 'r': game.recenterCamera(); break;
       case 'w': case 'arrowup': game.stepPlayer(-1, -1); break;
       case 's': case 'arrowdown': game.stepPlayer(1, 1); break;
       case 'a': case 'arrowleft': game.stepPlayer(-1, 1); break;

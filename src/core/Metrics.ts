@@ -1,14 +1,13 @@
 // Metrics.ts - Medidas base del mundo. Un solo lugar para cambiar el tamano de casilla.
 //
-// Cada casilla es un CUADRADO PERFECTO girado 45 grados: se ve como un rombo que mide lo mismo de
-// ancho que de alto (proporcion 1:1). Como es una rotacion pura, los circulos (vision, luz) siguen
-// siendo circulos, y los 4 pasos "en cruz" de la pantalla son los pasos diagonales de la cuadricula.
+// Cada casilla es un rombo isometrico 2:1: el doble de ancho que de alto. Es la proporcion
+// estandar del arte isometrico, asi que los sprites y suelos isometricos calzan sin deformarse.
 
-/** Ancho y alto del rombo en pixeles (la diagonal del cuadrado). Los atlas de suelo usan celdas de este tamano. */
-export const TILE_SIZE = 96;
+/** Ancho del rombo en pixeles. Los atlas de suelo usan celdas de TILE_WIDTH x TILE_HEIGHT. */
+export const TILE_WIDTH = 96;
 
-/** Lado real del cuadrado = distancia entre los centros de dos casillas vecinas */
-export const TILE_SIDE = TILE_SIZE / Math.SQRT2;
+/** Alto del rombo en pixeles (la mitad del ancho: proporcion 2:1) */
+export const TILE_HEIGHT = TILE_WIDTH / 2;
 
 /** Casillas por lado de un mapa */
 export const MAP_SIZE = 64;

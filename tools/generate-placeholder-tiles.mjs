@@ -1,9 +1,8 @@
 // generate-placeholder-tiles.mjs
 // Escribe atlas PROVISIONALES de suelo para cada bioma en public/tiles/<bioma>.png.
 // El diseno debe coincidir con TILE_ATLAS_MANIFEST (src/core/TileAtlas.ts):
-//   celdas cuadradas de TILE_SIZE x TILE_SIZE (src/core/Metrics.ts) con un ROMBO 1:1 inscrito
-//   (un cuadrado perfecto girado 45 grados) que llega hasta el borde de la celda; las 4 esquinas
-//   quedan transparentes. Una fila por terreno en el orden de abajo, 3 columnas de variantes.
+//   celdas de TILE_WIDTH x TILE_HEIGHT (src/core/Metrics.ts) con un ROMBO 2:1 (el doble de ancho
+//   que de alto) que llega hasta el borde de la celda; las 4 esquinas quedan transparentes. Una fila por terreno en el orden de abajo, 3 columnas de variantes.
 //   Cualquier PNG se puede reemplazar por arte final sin tocar codigo mientras se respete ese diseno.
 //
 // Uso: node tools/generate-placeholder-tiles.mjs
@@ -13,10 +12,10 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const CELL = 96; // debe ser igual a TILE_SIZE en src/core/Metrics.ts
-const CELL_W = CELL;
-const CELL_H = CELL;
-const HALF = CELL / 2;
+const CELL_W = 96; // debe ser igual a TILE_WIDTH en src/core/Metrics.ts
+const CELL_H = 48; // y a TILE_HEIGHT (la mitad: rombo 2:1)
+const HALF_W = CELL_W / 2;
+const HALF_H = CELL_H / 2;
 const VARIANTS = 3;
 
 const hex = (h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255];
@@ -76,6 +75,12 @@ function hash(a, b, c) {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
+function insideDiamond(cx, cy) {
+  const dx = Math.max(0, Math.abs(cx + 0.5 - HALF_W) - 0.5);
+  const dy = Math.max(0, Math.abs(cy + 0.5 - HALF_H) - 0.5);
+  return dx / HALF_W + dy / HALF_H <= 1;
+}
+
 function renderAtlas(terrains) {
   const width = CELL_W * VARIANTS;
   const height = CELL_H * terrains.length;
@@ -93,9 +98,10 @@ function renderAtlas(terrains) {
     for (let variant = 0; variant < VARIANTS; variant++) {
       for (let cy = 0; cy < CELL_H; cy++) {
         for (let cx = 0; cx < CELL_W; cx++) {
-          // Rombo 1:1 inscrito. Es <= (no <): los pixeles justo sobre la arista pertenecen a las dos
-          // casillas vecinas, asi se solapan 1 px y no quedan lineas entre ellas.
-          if (Math.abs(cx + 0.5 - HALF) + Math.abs(cy + 0.5 - HALF) > HALF) continue;
+          // Rombo 2:1: un pixel es opaco si su cuadro toca el rombo (se mide hasta la esquina mas cercana
+          // al centro). Asi los pixeles sobre la arista pertenecen a las dos casillas vecinas, se solapan
+          // y no quedan lineas entre ellas.
+          if (insideDiamond(cx, cy) === false) continue;
 
           // Textura suave: ruido por pixel, sin bordes ni luces marcadas en el contorno
           const noise = (hash(cx, cy, row * 7 + variant) - 0.5) * 14;

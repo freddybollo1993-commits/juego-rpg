@@ -1,6 +1,6 @@
 # Isla Desconocida
 
-RPG de supervivencia y exploración **por turnos** en una isla desconocida. Pixel art sobre una cuadrícula de cuadrados perfectos girados 45° (rombos 1:1), ambiente sombrío.
+RPG de supervivencia y exploración **por turnos** en una isla desconocida. Pixel art sobre una cuadrícula isométrica 2:1, ambiente sombrío.
 
 ## Pilares del diseño
 - **Por turnos, el tiempo avanza con cada acción.** El reloj del mundo no corre solo: mover o esperar consumen minutos de juego (ver `TIME_COST` en [`src/core/TurnSystem.ts`](src/core/TurnSystem.ts)).
@@ -14,7 +14,9 @@ Base limpia, sin sistemas de combate, objetos ni misiones todavía. Lo que hay:
 | | |
 |---|---|
 | Mapa | **64×64** casillas por bioma |
-| Casilla | Un **cuadrado perfecto girado 45°**: un rombo de **96×96 px** (lado ≈ 68 px). Proporción 1:1, así que los círculos (visión, luz) siguen siendo círculos. El piso es un plano continuo que cubre toda la pantalla. Tamaño en [`src/core/Metrics.ts`](src/core/Metrics.ts) |
+| Casilla | Un **rombo isométrico 2:1** de **96×48 px** (el doble de ancho que de alto, la proporción estándar del arte isométrico). El piso es un plano continuo que cubre toda la pantalla. Tamaño en [`src/core/Metrics.ts`](src/core/Metrics.ts) |
+| Movimiento | **Tocar una casilla** hace caminar al personaje hasta ella por el camino más corto (un turno por paso; se ve el recorrido y cualquier botón o toque nuevo lo interrumpe). También D-Pad (8 direcciones) y teclado |
+| Cámara | No sigue cada paso: se queda quieta y solo se desliza a recentrar al personaje cuando se acerca a los bordes. **Arrastrar** mueve la vista, **pellizcar / rueda / ＋ －** hacen zoom (×0.5 a ×3) y **🎯** (o `R`) centra en el personaje |
 | Biomas | Orilla del Naufragio, Meseta Helada, Taiga, Ciénaga, Cañón, Abismo, Núcleo del Impacto |
 | Mundo | Terreno generado con ruido suave (mismo bioma = mismo mapa), escenografía decorativa, clima. La niebla de guerra **oscurece** el piso (visible / recordado / sin explorar) en vez de ocultarlo, así nunca hay vista vacía y cualquier toque cae sobre una casilla |
 | Personaje | 28×42 px (~0.3 del ancho de la casilla) |
@@ -48,14 +50,14 @@ Para abrir un bioma concreto: `http://localhost:5173/?biome=frost` (`beach`, `fr
 ## Estructura
 ```
 src/
-  core/      Game (bucle), TileGrid, Metrics, TileAtlas, PropAtlas, DecorLayer, TurnSystem
+  core/      Game (bucle y cámara), TileGrid, Pathfinding, Metrics, TileAtlas, PropAtlas, DecorLayer, TurnSystem
   entities/  Player
   systems/   DayNightCycle, WeatherSystem, SaveSystem  (+ __tests__)
   data/      regions (los 7 biomas)
-  ui/        HUD
+  ui/        HUD, Gestures (toque, arrastre y zoom)
   audio/     SoundManager (pasos y ambiente procedural)
 public/
-  tiles/     Atlas de suelo por bioma (celdas de 96×96 px con el rombo 1:1 inscrito)
+  tiles/     Atlas de suelo por bioma (celdas de 96×48 px con el rombo 2:1 que llena la celda)
   props/     Atlas de escenografía por bioma (64×80 px por celda)
 tools/       Generadores de arte provisional (node tools/generate-placeholder-*.mjs)
 blender/     Rig de Blender para renderizar criaturas en el ángulo exacto del juego
