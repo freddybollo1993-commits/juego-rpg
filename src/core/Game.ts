@@ -14,9 +14,12 @@ import { propAtlas } from './PropAtlas';
 import { DecorLayer } from './DecorLayer';
 import { soundManager } from '../audio/SoundManager';
 
-const SIGHT_RADIUS = 5;      // casillas que el jugador ve a su alrededor
-const LIGHT_RADIUS_PX = 130; // radio del halo de luz en pantalla
-const BACKGROUND = '#05070b'; // lo que no se ha explorado es oscuridad total
+const SIGHT_RADIUS = 5; // casillas que el jugador ve a su alrededor
+// Un circulo de 5 casillas en el piso isometrico se ve como una elipse 2:1 de este semieje horizontal
+// (0.707 * radio * ancho de casilla); el halo de luz se queda un poco por dentro para que se funda
+// con la niebla en vez de cortarse.
+const LIGHT_RADIUS_X = Math.round(0.707 * SIGHT_RADIUS * IsometricGrid.TILE_WIDTH * 0.95);
+const BACKGROUND = '#05070b'; // mas alla del borde exterior del piso: oscuridad total
 
 export class Game {
   public grid: IsometricGrid = new IsometricGrid();
@@ -79,7 +82,7 @@ export class Game {
     soundManager.setBiomeMusic(region.biomeType);
 
     this.cameraX = this.player.x - this.canvas.width / 2;
-    this.cameraY = this.player.y - 18 - this.canvas.height / 2;
+    this.cameraY = this.player.y - this.player.height / 2 - this.canvas.height / 2;
   }
 
   // --- Acciones del jugador (cada una es un turno y consume tiempo) ---
@@ -182,7 +185,7 @@ export class Game {
     // La camara sigue suavemente al torso del jugador, a cualquier fps
     const a = 1 - Math.exp(-delta * 10);
     const targetCamX = this.player.x - this.canvas.width / 2;
-    const targetCamY = this.player.y - 18 - this.canvas.height / 2;
+    const targetCamY = this.player.y - this.player.height / 2 - this.canvas.height / 2;
     this.cameraX += (targetCamX - this.cameraX) * a;
     this.cameraY += (targetCamY - this.cameraY) * a;
 
@@ -215,7 +218,7 @@ export class Game {
     list.length = 0;
     this.decor.collectRenderables(ctx, this.grid, this.currentRegion.biomeType, bounds, this.cameraX, this.cameraY, list);
     list.push({
-      y: this.player.y + this.player.height / 2,
+      y: this.player.y, // los pies: igual que la base de los props
       draw: () => this.player.draw(ctx, this.cameraX, this.cameraY)
     });
     list.sort((a, b) => a.y - b.y);
@@ -239,15 +242,18 @@ export class Game {
     if (totalDarkness <= 0.08) return;
 
     const px = this.player.x - this.cameraX;
-    const py = this.player.y - this.cameraY;
-    const grad = ctx.createRadialGradient(px, py, 15, px, py, LIGHT_RADIUS_PX);
+    const py = this.player.y - this.player.height / 2 - this.cameraY;
+    const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, LIGHT_RADIUS_X);
     grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    grad.addColorStop(0.65, 'rgba(0, 0, 0, 0)');
+    grad.addColorStop(0.5, 'rgba(0, 0, 0, 0)');
     grad.addColorStop(1, `rgba(5, 5, 12, ${totalDarkness})`);
 
     ctx.save();
+    // Elipse 2:1 (el piso isometrico): se aplasta el eje vertical y se cubre toda la pantalla
+    ctx.translate(px, py);
+    ctx.scale(1, 0.5);
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(-px, -py * 2, width, height * 2);
     ctx.restore();
   }
 

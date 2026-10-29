@@ -14,9 +14,10 @@ Base limpia, sin sistemas de combate, objetos ni misiones todavía. Lo que hay:
 | | |
 |---|---|
 | Mapa | **64×64** casillas por bioma |
-| Casilla | **80×40 px** (rombo 2:1) + 16 px de grosor |
+| Casilla | **80×40 px**, rombo 2:1 **plano** (sin grosor): el piso es un plano continuo que cubre toda la pantalla |
 | Biomas | Orilla del Naufragio, Meseta Helada, Taiga, Ciénaga, Cañón, Abismo, Núcleo del Impacto |
-| Mundo | Terreno generado con ruido suave (mismo bioma = mismo mapa), escenografía decorativa, clima, niebla de guerra |
+| Mundo | Terreno generado con ruido suave (mismo bioma = mismo mapa), escenografía decorativa, clima. La niebla de guerra **oscurece** el piso (visible / recordado / sin explorar) en vez de ocultarlo, así nunca hay vista vacía y cualquier toque cae sobre una casilla |
+| Personaje | ~0.9 casillas de alto (36 px), proporción tomada del juego de referencia |
 | Reloj | Día/noche por turnos, 10 min de juego por acción |
 | Guardado | Automático en cada turno (bioma, posición, turno, hora) |
 
@@ -54,7 +55,7 @@ src/
   ui/        HUD
   audio/     SoundManager (pasos y ambiente procedural)
 public/
-  tiles/     Atlas de suelo por bioma (80×56 px por celda)
+  tiles/     Atlas de suelo por bioma (80×40 px por celda, casilla plana)
   props/     Atlas de escenografía por bioma (64×80 px por celda)
 tools/       Generadores de arte provisional (node tools/generate-placeholder-*.mjs)
 blender/     Rig de Blender para renderizar criaturas en el ángulo exacto del juego

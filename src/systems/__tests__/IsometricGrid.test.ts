@@ -13,12 +13,12 @@ describe('Cuadricula isometrica 64x64', () => {
   });
 
   it('convierte coordenadas de cuadricula a pantalla y de vuelta', () => {
-    const screen = IsometricGrid.gridToScreen(10, 12, 0);
+    const screen = IsometricGrid.gridToScreen(10, 12);
     expect(screen.x).toBe((10 - 12) * (IsometricGrid.TILE_WIDTH / 2));
     expect(screen.y).toBe((10 + 12) * (IsometricGrid.TILE_HEIGHT / 2));
 
     for (const [gx, gy] of [[0, 0], [10, 12], [63, 63], [5, 40]]) {
-      const s = IsometricGrid.gridToScreen(gx, gy, 0);
+      const s = IsometricGrid.gridToScreen(gx, gy);
       expect(IsometricGrid.screenToGrid(s.x, s.y)).toEqual({ gx, gy });
     }
   });
@@ -43,8 +43,8 @@ describe('Cuadricula isometrica 64x64', () => {
     const b = new IsometricGrid();
     a.generateForRegion(REGIONS_DATA['forest']);
     b.generateForRegion(REGIONS_DATA['forest']);
-    expect(a.tiles.map(col => col.map(t => `${t.terrainType}/${t.elevation}`)))
-      .toEqual(b.tiles.map(col => col.map(t => `${t.terrainType}/${t.elevation}`)));
+    expect(a.tiles.map(col => col.map(t => t.terrainType)))
+      .toEqual(b.tiles.map(col => col.map(t => t.terrainType)));
   });
 
   it('cada bioma mezcla varios terrenos y todos tienen sprite en el atlas', () => {
@@ -60,6 +60,30 @@ describe('Cuadricula isometrica 64x64', () => {
         expect(atlas.terrains[kind], `${region.id}/${kind}`).toBeDefined();
       }
     }
+  });
+
+  it('el piso cubre toda la pantalla: dentro del mapa y en un borde exterior', () => {
+    const grid = new IsometricGrid();
+    grid.generateForRegion(REGIONS_DATA['beach']);
+
+    // Fuera del mapa hay una casilla de piso infranqueable en lugar de un vacio
+    const outside = grid.getTile(-5, 200);
+    expect(outside.passable).toBe(false);
+    expect(outside.terrainType).toBe('deep_water');
+    expect(grid.getTile(10, 10)).toBe(grid.tiles[10][10]);
+
+    // Una pantalla de 1280x720 centrada en el mapa necesita menos casillas de las que se dibujan alrededor
+    const center = IsometricGrid.gridToScreen(32, 32);
+    const r = IsometricGrid.visibleRange(center.x - 640, center.y - 360, 1280, 720, 0);
+    const reach = Math.max(32 - r.gxMin, r.gxMax - 32, 32 - r.gyMin, r.gyMax - 32);
+    expect(reach).toBeLessThan(IsometricGrid.OUTSIDE_PAD + 32); // el piso extra alcanza
+    expect(reach).toBeGreaterThan(10); // y la pantalla si abarca varias casillas
+
+    // El rango incluye la casilla central y crece con el margen
+    expect(r.gxMin).toBeLessThan(32);
+    expect(r.gxMax).toBeGreaterThan(32);
+    const wider = IsometricGrid.visibleRange(center.x - 640, center.y - 360, 1280, 720, 3);
+    expect(wider.gxMin).toBe(r.gxMin - 3);
   });
 
   it('la niebla de guerra revela un circulo y recuerda lo explorado', () => {

@@ -1,12 +1,14 @@
-// PropAtlas.ts - Decoration prop spritesheets per biome (rocks, trees, crystals...)
+// PropAtlas.ts - Hojas de escenografia por bioma (rocas, arboles, cristales...)
 //
-// Same idea as TileAtlas: ONE image per biome, one ROW per prop kind, one COLUMN per variant.
+// Igual que TileAtlas: UNA imagen por bioma, una fila por tipo de prop, una columna por variante.
 //
-//   cell size : 64 x 80
-//   anchor    : the prop's base (where it touches the ground) is at (cellW / 2, anchorY)
+//   celda : 64 x 80
+//   ancla : la base del prop (donde toca el suelo) esta en (cellW / 2, anchorY)
 //
-// Props are drawn standing on the centre of a tile. A biome / kind without art is simply
-// not drawn (props are purely decorative).
+// Los props se dibujan de pie sobre el centro de una casilla. Un bioma o tipo sin imagen
+// simplemente no se dibuja (son decorativos).
+
+import { ShadeLevel, buildShadedSheets } from './Shade';
 
 export interface PropAtlasDef {
   image: string;
@@ -14,7 +16,7 @@ export interface PropAtlasDef {
   cellH: number;
   anchorY: number;
   variants: number;
-  kinds: Record<string, number>; // kind -> row index
+  kinds: Record<string, number>; // tipo -> fila
 }
 
 function propSheet(biome: string, kinds: string[], variants: number = 3): PropAtlasDef {
@@ -28,7 +30,7 @@ function propSheet(biome: string, kinds: string[], variants: number = 3): PropAt
   };
 }
 
-// Keys are RegionData.biomeType. Row order must match tools/generate-placeholder-props.mjs
+// Las claves son RegionData.biomeType. El orden de filas debe coincidir con tools/generate-placeholder-props.mjs
 export const PROP_ATLAS_MANIFEST: Record<string, PropAtlasDef> = {
   beach:      propSheet('beach',      ['palm', 'rock', 'driftwood', 'grass_tuft']),
   frost:      propSheet('frost',      ['ice_spike', 'snow_rock', 'dead_pine', 'snow_mound']),
@@ -40,10 +42,10 @@ export const PROP_ATLAS_MANIFEST: Record<string, PropAtlasDef> = {
 };
 
 export class PropAtlas {
-  private images: Map<string, HTMLImageElement> = new Map();
+  private sheets: Map<string, CanvasImageSource[]> = new Map();
   private started: boolean = false;
 
-  /** Load every registered sheet. Missing files are ignored (those props are not drawn). */
+  /** Carga todas las hojas. Si falta una imagen, esos props no se dibujan. */
   public preloadAll(): Promise<void> {
     if (this.started) return Promise.resolve();
     this.started = true;
@@ -52,11 +54,11 @@ export class PropAtlas {
       return new Promise<void>((resolve) => {
         const img = new Image();
         img.onload = () => {
-          this.images.set(biome, img);
+          this.sheets.set(biome, buildShadedSheets(img));
           resolve();
         };
         img.onerror = () => {
-          console.warn(`[PropAtlas] Could not load prop sheet: ${def.image} (props hidden)`);
+          console.warn(`[PropAtlas] No se pudo cargar ${def.image} (props ocultos)`);
           resolve();
         };
         img.src = def.image;
@@ -67,8 +69,8 @@ export class PropAtlas {
   }
 
   /**
-   * Draw one prop with its base at (px, py). `variantSeed` in [0, 1] picks a stable variant.
-   * Returns false when no sprite is available.
+   * Dibuja un prop con su base en (px, py). `variantSeed` en [0, 1] elige una variante estable.
+   * `shade` lo oscurece segun la niebla. Devuelve false si no hay sprite.
    */
   public draw(
     ctx: CanvasRenderingContext2D,
@@ -76,16 +78,17 @@ export class PropAtlas {
     kind: string,
     variantSeed: number,
     px: number,
-    py: number
+    py: number,
+    shade: ShadeLevel = 0
   ): boolean {
     const def = PROP_ATLAS_MANIFEST[biome];
-    const img = this.images.get(biome);
+    const sheets = this.sheets.get(biome);
     const row = def?.kinds[kind];
-    if (!def || !img || row === undefined) return false;
+    if (!def || !sheets || row === undefined) return false;
 
     const col = Math.min(def.variants - 1, Math.floor(variantSeed * def.variants));
     ctx.drawImage(
-      img,
+      sheets[shade],
       col * def.cellW, row * def.cellH, def.cellW, def.cellH,
       Math.round(px - def.cellW / 2), Math.round(py - def.anchorY), def.cellW, def.cellH
     );

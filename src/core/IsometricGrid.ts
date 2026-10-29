@@ -1,26 +1,28 @@
-// IsometricGrid.ts - 2.5D Axonometric Diorama Engine, Biome Slabs & Fog of War (The Wild Darkness style)
+// IsometricGrid.ts - Suelo isometrico 2:1 PLANO. El piso es un plano continuo que cubre toda la
+// pantalla (mas alla del mapa se extiende un borde exterior), y la niebla de guerra lo oscurece
+// en vez de ocultarlo. Asi nunca hay una "vista vacia" y cualquier toque cae sobre una casilla.
 
 import { RegionData } from '../data/regions';
 import { tileAtlas } from './TileAtlas';
+import { SHADE_ALPHA, SHADE_RGB, ShadeLevel, shadeForVisibility } from './Shade';
 
 export interface IsoTile {
   gx: number;
   gy: number;
   terrainType: string;
-  elevation: number; // 0: ground, 1: raised cliff/plateau
   passable: boolean;
-  visibility: number; // 0: Unexplored, 1: Explored (fogged), 2: Visible (active light)
+  visibility: number; // 0: sin explorar, 1: explorada (recordada), 2: visible ahora
   accentVariant: number;
 }
 
-/** Deterministic lattice hash -> [0, 1) */
+/** Hash determinista de reticula -> [0, 1) */
 function hash2(ix: number, iy: number, seed: number): number {
   let h = (ix * 374761393 + iy * 668265263 + seed * 2147483647) | 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
-/** Smooth value noise in [0, 1] */
+/** Ruido de valor suave en [0, 1] */
 function valueNoise(x: number, y: number, seed: number): number {
   const ix = Math.floor(x);
   const iy = Math.floor(y);
@@ -35,7 +37,7 @@ function valueNoise(x: number, y: number, seed: number): number {
   return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
 }
 
-/** Two-octave fractal noise, centred and scaled to roughly [-1, 1] */
+/** Ruido fractal de dos octavas, centrado y escalado a ~[-1, 1] */
 function terrainNoise(gx: number, gy: number, seed: number): number {
   const v = valueNoise(gx * 0.085, gy * 0.085, seed) * 0.68 + valueNoise(gx * 0.21, gy * 0.21, seed + 101) * 0.32;
   return (v - 0.5) * 2.4;
@@ -47,11 +49,24 @@ function seedFromString(s: string): number {
   return h | 0;
 }
 
+/** Mezcla un color '#rrggbb' con la oscuridad de la niebla (respaldo cuando no hay sprite) */
+function shadeColor(hex: string, level: ShadeLevel): string {
+  const a = SHADE_ALPHA[level];
+  if (a === 0) return hex;
+  const [dr, dg, db] = SHADE_RGB.split(',').map(Number);
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const mix = (c: number, d: number) => Math.round(c * (1 - a) + d * a);
+  return `rgb(${mix(r, dr)}, ${mix(g, dg)}, ${mix(b, db)})`;
+}
+
 export class IsometricGrid {
   public static readonly TILE_WIDTH = 80;
   public static readonly TILE_HEIGHT = 40;
-  public static readonly TILE_DEPTH = 16; // 2.5D prism block height
   public static readonly DEFAULT_SIZE = 64;
+  /** Casillas de piso extra dibujadas alrededor del mapa para no dejar nunca el borde a la vista */
+  public static readonly OUTSIDE_PAD = 30;
 
   public cols: number = IsometricGrid.DEFAULT_SIZE;
   public rows: number = IsometricGrid.DEFAULT_SIZE;
@@ -59,94 +74,110 @@ export class IsometricGrid {
   public hoveredTile: { gx: number; gy: number } | null = null;
   public targetTile: { gx: number; gy: number } | null = null;
 
+  /** Casilla que se dibuja fuera del mapa (infranqueable y siempre oscura) */
+  private outsideTile: IsoTile = { gx: -1, gy: -1, terrainType: 'boundary_cliff', passable: false, visibility: 0, accentVariant: 0.5 };
+
   constructor(cols: number = IsometricGrid.DEFAULT_SIZE, rows: number = IsometricGrid.DEFAULT_SIZE) {
     this.cols = cols;
     this.rows = rows;
   }
 
-  /** Convert logical grid coordinates to screen pixel coordinates */
-  public static gridToScreen(gx: number, gy: number, elevation: number = 0): { x: number; y: number } {
-    const halfW = IsometricGrid.TILE_WIDTH / 2;
-    const halfH = IsometricGrid.TILE_HEIGHT / 2;
-    const x = (gx - gy) * halfW;
-    const y = (gx + gy) * halfH - elevation * IsometricGrid.TILE_DEPTH;
-    return { x, y };
+  /** Coordenadas de cuadricula -> pantalla (centro del rombo) */
+  public static gridToScreen(gx: number, gy: number): { x: number; y: number } {
+    return {
+      x: (gx - gy) * (IsometricGrid.TILE_WIDTH / 2),
+      y: (gx + gy) * (IsometricGrid.TILE_HEIGHT / 2)
+    };
   }
 
-  /** Convert screen pixel coordinates to logical grid coordinates with high precision */
+  /** Pantalla -> casilla */
   public static screenToGrid(screenX: number, screenY: number): { gx: number; gy: number } {
     const halfW = IsometricGrid.TILE_WIDTH / 2;
     const halfH = IsometricGrid.TILE_HEIGHT / 2;
-    const gx = Math.round((screenX / halfW + screenY / halfH) / 2);
-    const gy = Math.round((screenY / halfH - screenX / halfW) / 2);
-    return { gx, gy };
+    return {
+      gx: Math.round((screenX / halfW + screenY / halfH) / 2),
+      gy: Math.round((screenY / halfH - screenX / halfW) / 2)
+    };
   }
 
-  /** Generate biome-specific 2.5D tiles for a region */
+  /** Rango de casillas que puede tocar una ventana de pantalla (con margen), para dibujar solo lo visible */
+  public static visibleRange(cameraX: number, cameraY: number, width: number, height: number, margin: number = 2) {
+    const halfW = IsometricGrid.TILE_WIDTH / 2;
+    const halfH = IsometricGrid.TILE_HEIGHT / 2;
+    let gxMin = Infinity, gxMax = -Infinity, gyMin = Infinity, gyMax = -Infinity;
+    for (const x of [cameraX, cameraX + width]) {
+      for (const y of [cameraY, cameraY + height]) {
+        const gx = (x / halfW + y / halfH) / 2;
+        const gy = (y / halfH - x / halfW) / 2;
+        gxMin = Math.min(gxMin, gx);
+        gxMax = Math.max(gxMax, gx);
+        gyMin = Math.min(gyMin, gy);
+        gyMax = Math.max(gyMax, gy);
+      }
+    }
+    return {
+      gxMin: Math.floor(gxMin) - margin,
+      gxMax: Math.ceil(gxMax) + margin,
+      gyMin: Math.floor(gyMin) - margin,
+      gyMax: Math.ceil(gyMax) + margin
+    };
+  }
+
+  /** Genera el terreno de un bioma: determinista (mismo bioma = mismo mapa) */
   public generateForRegion(region: RegionData) {
     this.tiles = [];
     const biome = region.biomeType;
     const seed = seedFromString(region.id);
+    const borderTerrain = biome === 'beach' ? 'deep_water' : 'boundary_cliff';
+    this.outsideTile = { ...this.outsideTile, terrainType: borderTerrain };
 
     for (let gx = 0; gx < this.cols; gx++) {
       this.tiles[gx] = [];
       for (let gy = 0; gy < this.rows; gy++) {
-        // Deterministic smooth noise: same region id -> same terrain, no visible repetition
         const noise = terrainNoise(gx, gy, seed);
         const edgeDist = Math.min(gx, this.cols - 1 - gx, gy, this.rows - 1 - gy);
 
         let terrainType = 'primary';
-        let elevation = 0;
         let passable = true;
 
         if (edgeDist <= 1) {
-          // Perimeter borders: cliffs, deep water or impassable boundaries
-          if (biome === 'beach') {
-            terrainType = gx === 0 || gy === 0 ? 'deep_water' : 'rock_cliff';
-            passable = false;
-          } else {
-            terrainType = 'boundary_cliff';
-            elevation = 1;
-            passable = false;
-          }
+          // Borde del mapa: agua profunda o roca infranqueable
+          terrainType = borderTerrain;
+          passable = false;
+        } else if (biome === 'beach') {
+          terrainType = noise > 0.25 ? 'wet_sand' : noise < -0.3 ? 'coastal_pebbles' : 'dry_sand';
+        } else if (biome === 'frost') {
+          terrainType = noise > 0.3 ? 'glacial_ice' : noise < -0.2 ? 'frost_rock' : 'packed_snow';
+        } else if (biome === 'swamp') {
+          terrainType = noise > 0.35 ? 'toxic_slime' : noise < -0.25 ? 'deep_mire' : 'mud_moss';
+        } else if (biome === 'canyon') {
+          terrainType = noise > 0.3 ? 'magma_fissure' : noise < -0.25 ? 'basalt_gravel' : 'red_sandstone';
+        } else if (biome === 'caverns') {
+          terrainType = noise > 0.3 ? 'crystal_cluster' : noise < -0.2 ? 'abyssal_chasm' : 'dark_slate';
+        } else if (biome === 'alien_core') {
+          terrainType = noise > 0.25 ? 'plasma_circuit' : noise < -0.2 ? 'levitation_ring' : 'precursor_alloy';
         } else {
-          // Inner regional terrain
-          if (noise > 0.5 && edgeDist < 10) {
-            elevation = 1; // 2.5D raised ridge along the map border
-          }
-
-          if (biome === 'beach') {
-            terrainType = noise > 0.25 ? 'wet_sand' : noise < -0.3 ? 'coastal_pebbles' : 'dry_sand';
-          } else if (biome === 'frost') {
-            terrainType = noise > 0.3 ? 'glacial_ice' : noise < -0.2 ? 'frost_rock' : 'packed_snow';
-          } else if (biome === 'swamp') {
-            terrainType = noise > 0.35 ? 'toxic_slime' : noise < -0.25 ? 'deep_mire' : 'mud_moss';
-          } else if (biome === 'canyon') {
-            terrainType = noise > 0.3 ? 'magma_fissure' : noise < -0.25 ? 'basalt_gravel' : 'red_sandstone';
-          } else if (biome === 'caverns') {
-            terrainType = noise > 0.3 ? 'crystal_cluster' : noise < -0.2 ? 'abyssal_chasm' : 'dark_slate';
-          } else if (biome === 'alien_core') {
-            terrainType = noise > 0.25 ? 'plasma_circuit' : noise < -0.2 ? 'levitation_ring' : 'precursor_alloy';
-          } else {
-            // forest / taiga
-            terrainType = noise > 0.3 ? 'ancient_moss' : noise < -0.2 ? 'root_cluster' : 'pine_humus';
-          }
+          terrainType = noise > 0.3 ? 'ancient_moss' : noise < -0.2 ? 'root_cluster' : 'pine_humus';
         }
 
         this.tiles[gx][gy] = {
           gx,
           gy,
           terrainType,
-          elevation,
           passable,
-          visibility: 0, // Unexplored initially
+          visibility: 0,
           accentVariant: Math.abs(Math.sin(gx * 7 + gy * 13))
         };
       }
     }
   }
 
-  /** Update Fog of War: tiles seen last turn become "explored", then reveal the new sight circle */
+  /** Casilla del mapa, o la casilla exterior si esta fuera */
+  public getTile(gx: number, gy: number): IsoTile {
+    return this.tiles[gx]?.[gy] ?? this.outsideTile;
+  }
+
+  /** Niebla de guerra: lo visto el turno anterior pasa a "explorado" y se revela el nuevo circulo de vision */
   public updateFogOfWar(playerGx: number, playerGy: number, sightRadius: number) {
     for (let gx = 0; gx < this.cols; gx++) {
       for (let gy = 0; gy < this.rows; gy++) {
@@ -170,13 +201,13 @@ export class IsometricGrid {
         const dx = gx - centerX;
         const dy = gy - centerY;
         if (dx * dx + dy * dy <= radSq) {
-          this.tiles[gx][gy].visibility = 2; // Visible
+          this.tiles[gx][gy].visibility = 2;
         }
       }
     }
   }
 
-  /** Reveal all tiles (for sandbox / test mode) */
+  /** Revela todo el mapa (pruebas / depuracion) */
   public revealAll() {
     for (let gx = 0; gx < this.cols; gx++) {
       for (let gy = 0; gy < this.rows; gy++) {
@@ -185,129 +216,71 @@ export class IsometricGrid {
     }
   }
 
-  /** Check if a grid tile is in bounds and passable */
+  /** Casilla dentro del mapa y transitable */
   public isPassable(gx: number, gy: number): boolean {
     if (gx < 0 || gx >= this.cols || gy < 0 || gy >= this.rows) return false;
     return this.tiles[gx][gy].passable;
   }
 
-  /** Render the 2.5D Isometric Diamond Grid with Block Depth */
-  public draw(
-    ctx: CanvasRenderingContext2D,
-    cameraX: number,
-    cameraY: number,
-    region: RegionData
-  ) {
+  /** Dibuja el piso visible: todas las casillas de la pantalla, oscurecidas segun la niebla */
+  public draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number, region: RegionData) {
+    const width = ctx.canvas.width;
+    const height = ctx.canvas.height;
     const halfW = IsometricGrid.TILE_WIDTH / 2;
     const halfH = IsometricGrid.TILE_HEIGHT / 2;
-    const depth = IsometricGrid.TILE_DEPTH;
+    const pad = IsometricGrid.OUTSIDE_PAD;
 
-    // Draw row by row from top to bottom (isometric natural sorting)
-    for (let sum = 0; sum < this.cols + this.rows - 1; sum++) {
-      for (let gx = 0; gx < this.cols; gx++) {
+    const r = IsometricGrid.visibleRange(cameraX, cameraY, width, height);
+    const gxMin = Math.max(-pad, r.gxMin);
+    const gxMax = Math.min(this.cols - 1 + pad, r.gxMax);
+    const gyMin = Math.max(-pad, r.gyMin);
+    const gyMax = Math.min(this.rows - 1 + pad, r.gyMax);
+
+    ctx.imageSmoothingEnabled = false; // pixel art nitido
+
+    // Diagonal por diagonal (suma gx+gy) para que el solape de 1 px entre rombos quede ordenado
+    for (let sum = gxMin + gyMin; sum <= gxMax + gyMax; sum++) {
+      const start = Math.max(gxMin, sum - gyMax);
+      const end = Math.min(gxMax, sum - gyMin);
+      for (let gx = start; gx <= end; gx++) {
         const gy = sum - gx;
-        if (gy < 0 || gy >= this.rows) continue;
-
-        const tile = this.tiles[gx][gy];
-        if (tile.visibility === 0) continue; // Unexplored: completely black
-
-        const screen = IsometricGrid.gridToScreen(gx, gy, tile.elevation);
-        const px = screen.x - cameraX;
-        const py = screen.y - cameraY;
-
-        // Culling: check if tile is visible on screen
-        if (px + halfW < -80 || px - halfW > ctx.canvas.width + 80 || py + halfH + depth < -80 || py - halfH > ctx.canvas.height + 80) {
-          continue;
-        }
-
-        const isDim = tile.visibility === 1; // Explored but not in current sight
-        this.drawTileSlab(ctx, px, py, halfW, halfH, depth, tile, region, isDim);
-
-        // Highlight hovered tile
-        if (this.hoveredTile && this.hoveredTile.gx === gx && this.hoveredTile.gy === gy) {
-          this.drawTileOutline(ctx, px, py, halfW, halfH, 'rgba(255, 215, 0, 0.8)', 2.5);
-        }
-
-        // Highlight selected target tile
-        if (this.targetTile && this.targetTile.gx === gx && this.targetTile.gy === gy) {
-          this.drawTileOutline(ctx, px, py, halfW, halfH, 'rgba(0, 245, 212, 0.9)', 3);
-        }
+        const px = (gx - gy) * halfW - cameraX;
+        const py = (gx + gy) * halfH - cameraY;
+        if (px < -halfW * 2 || px > width + halfW * 2 || py < -halfH * 2 || py > height + halfH * 2) continue;
+        this.drawTile(ctx, px, py, this.getTile(gx, gy), region);
       }
+    }
+
+    // Resaltes de la casilla bajo el cursor y de la ultima tocada
+    for (const [tile, color, line] of [
+      [this.hoveredTile, 'rgba(255, 215, 0, 0.8)', 2.5],
+      [this.targetTile, 'rgba(0, 245, 212, 0.9)', 3]
+    ] as const) {
+      if (!tile) continue;
+      const s = IsometricGrid.gridToScreen(tile.gx, tile.gy);
+      this.drawTileOutline(ctx, s.x - cameraX, s.y - cameraY, halfW, halfH, color, line);
     }
   }
 
-  /** Draw an individual 2.5D Isometric Tile Block (Top Diamond + Left/Right Shaded Facets) */
-  private drawTileSlab(
-    ctx: CanvasRenderingContext2D,
-    px: number,
-    py: number,
-    halfW: number,
-    halfH: number,
-    depth: number,
-    tile: IsoTile,
-    region: RegionData,
-    isDim: boolean
-  ) {
-    // Sprite path: use the biome's tile atlas when it has art for this terrain
-    ctx.imageSmoothingEnabled = false; // keep pixel art crisp
-    if (tileAtlas.draw(ctx, region.biomeType, tile.terrainType, tile.accentVariant, px, py)) {
-      if (isDim) {
-        // Explored but out of sight: darken the whole block silhouette
-        ctx.beginPath();
-        ctx.moveTo(px, py - halfH);
-        ctx.lineTo(px + halfW, py);
-        ctx.lineTo(px + halfW, py + depth);
-        ctx.lineTo(px, py + halfH + depth);
-        ctx.lineTo(px - halfW, py + depth);
-        ctx.lineTo(px - halfW, py);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(10, 16, 30, 0.72)';
-        ctx.fill();
-      }
-      return;
-    }
+  private drawTile(ctx: CanvasRenderingContext2D, px: number, py: number, tile: IsoTile, region: RegionData) {
+    const shade = shadeForVisibility(tile.visibility);
+    if (tileAtlas.draw(ctx, region.biomeType, tile.terrainType, tile.accentVariant, px, py, shade)) return;
 
-    const colors = this.getTileColors(tile.terrainType, region, tile.accentVariant);
-
-    // 1. Right Slab Face (Shaded dark)
-    ctx.beginPath();
-    ctx.moveTo(px, py + halfH);
-    ctx.lineTo(px + halfW, py);
-    ctx.lineTo(px + halfW, py + depth);
-    ctx.lineTo(px, py + halfH + depth);
-    ctx.closePath();
-    ctx.fillStyle = isDim ? '#0d1520' : colors.rightFace;
-    ctx.fill();
-
-    // 2. Left Slab Face (Shaded medium)
-    ctx.beginPath();
-    ctx.moveTo(px, py + halfH);
-    ctx.lineTo(px - halfW, py);
-    ctx.lineTo(px - halfW, py + depth);
-    ctx.lineTo(px, py + halfH + depth);
-    ctx.closePath();
-    ctx.fillStyle = isDim ? '#121b2a' : colors.leftFace;
-    ctx.fill();
-
-    // 3. Top Isometric Diamond Surface
+    // Respaldo sin imagen: rombo plano del color del terreno (el borde del mismo color tapa las costuras)
+    const halfW = IsometricGrid.TILE_WIDTH / 2;
+    const halfH = IsometricGrid.TILE_HEIGHT / 2;
+    const color = shadeColor(this.getTileColor(tile.terrainType, region, tile.accentVariant), shade);
     ctx.beginPath();
     ctx.moveTo(px, py - halfH);
     ctx.lineTo(px + halfW, py);
     ctx.lineTo(px, py + halfH);
     ctx.lineTo(px - halfW, py);
     ctx.closePath();
-    ctx.fillStyle = isDim ? '#1e293b' : colors.top;
-    ctx.fill();
-
-    // Subtle tile grid borders
-    ctx.strokeStyle = isDim ? 'rgba(15, 23, 42, 0.4)' : 'rgba(0, 0, 0, 0.15)';
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
     ctx.lineWidth = 1;
+    ctx.fill();
     ctx.stroke();
-
-    // Biome-specific surface details
-    if (!isDim) {
-      this.drawTileDetails(ctx, px, py, tile);
-    }
   }
 
   private drawTileOutline(
@@ -328,114 +301,47 @@ export class IsometricGrid {
     ctx.closePath();
     ctx.strokeStyle = color;
     ctx.lineWidth = lineWidth;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 6;
     ctx.stroke();
     ctx.restore();
   }
 
-  private drawTileDetails(ctx: CanvasRenderingContext2D, px: number, py: number, tile: IsoTile) {
-    if (tile.terrainType === 'toxic_slime') {
-      // Slime bubble gleam
-      ctx.fillStyle = '#70e000';
-      ctx.beginPath();
-      ctx.arc(px + 4, py - 2, 3, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (tile.terrainType === 'magma_fissure') {
-      // Glowing lava crack
-      ctx.strokeStyle = '#ff5400';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(px - 10, py);
-      ctx.lineTo(px + 2, py + 4);
-      ctx.lineTo(px + 12, py - 2);
-      ctx.stroke();
-    } else if (tile.terrainType === 'glacial_ice') {
-      // Ice gleam reflection
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(px - 6, py - 3);
-      ctx.lineTo(px + 6, py + 3);
-      ctx.stroke();
-    } else if (tile.terrainType === 'plasma_circuit') {
-      // Alien glowing cyan trace
-      ctx.strokeStyle = '#00f5d4';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(px - 12, py + 2);
-      ctx.lineTo(px, py - 4);
-      ctx.lineTo(px + 12, py + 2);
-      ctx.stroke();
-    }
-  }
-
-  private getTileColors(
-    terrain: string,
-    region: RegionData,
-    variant: number
-  ): { top: string; leftFace: string; rightFace: string } {
+  private getTileColor(terrain: string, region: RegionData, variant: number): string {
+    const alt = variant > 0.5;
     switch (terrain) {
-      // Beach
-      case 'dry_sand':
-        return { top: variant > 0.5 ? '#b8b087' : '#b0a880', leftFace: '#8e8663', rightFace: '#6d6749' };
-      case 'wet_sand':
-        return { top: '#9e9570', leftFace: '#787152', rightFace: '#5c563c' };
-      case 'coastal_pebbles':
-        return { top: '#7d7a71', leftFace: '#5f5d56', rightFace: '#45433d' };
-      case 'deep_water':
-        return { top: '#2b4353', leftFace: '#1d2e3a', rightFace: '#121d25' };
-
-      // Frost
-      case 'packed_snow':
-        return { top: variant > 0.5 ? '#e2edf5' : '#d6e6f2', leftFace: '#9ab3c4', rightFace: '#758d9e' };
-      case 'glacial_ice':
-        return { top: '#7bc8e2', leftFace: '#4e9ab3', rightFace: '#347083' };
-      case 'frost_rock':
-        return { top: '#5d6b79', leftFace: '#424d58', rightFace: '#2e363d' };
-
-      // Swamp
-      case 'mud_moss':
-        return { top: variant > 0.5 ? '#2b3a27' : '#33442e', leftFace: '#1d261a', rightFace: '#141a12' };
-      case 'toxic_slime':
-        return { top: '#426b2b', leftFace: '#2d4c1c', rightFace: '#1f3513' };
-      case 'deep_mire':
-        return { top: '#1c2219', leftFace: '#121610', rightFace: '#0a0d09' };
-
-      // Canyon
-      case 'red_sandstone':
-        return { top: variant > 0.5 ? '#964b28' : '#884323', leftFace: '#6a341b', rightFace: '#4f2613' };
-      case 'magma_fissure':
-        return { top: '#4a1e12', leftFace: '#31140c', rightFace: '#220e08' };
-      case 'basalt_gravel':
-        return { top: '#50443e', leftFace: '#382f2b', rightFace: '#27201d' };
-
-      // Caverns
-      case 'dark_slate':
-        return { top: variant > 0.5 ? '#211d33' : '#1a162b', leftFace: '#131020', rightFace: '#0d0b16' };
-      case 'crystal_cluster':
-        return { top: '#3f37c9', leftFace: '#2c268f', rightFace: '#1f1b66' };
-      case 'abyssal_chasm':
-        return { top: '#0a0812', leftFace: '#06050b', rightFace: '#030206' };
-
-      // Alien Core
-      case 'precursor_alloy':
-        return { top: variant > 0.5 ? '#162834' : '#12212b', leftFace: '#0d1820', rightFace: '#091117' };
-      case 'plasma_circuit':
-        return { top: '#0e3846', leftFace: '#092731', rightFace: '#061a21' };
-      case 'levitation_ring':
-        return { top: '#23395b', leftFace: '#18273f', rightFace: '#101b2c' };
-
-      // Forest / Taiga
-      case 'pine_humus':
-        return { top: variant > 0.5 ? '#2e4225' : '#273820', leftFace: '#1b2716', rightFace: '#121b0f' };
-      case 'ancient_moss':
-        return { top: '#3b552f', leftFace: '#27391f', rightFace: '#1a2715' };
-      case 'root_cluster':
-        return { top: '#423326', leftFace: '#2f241b', rightFace: '#201812' };
-
+      // Playa
+      case 'dry_sand': return alt ? '#b8b087' : '#b0a880';
+      case 'wet_sand': return '#9e9570';
+      case 'coastal_pebbles': return '#7d7a71';
+      case 'deep_water': return '#2b4353';
+      case 'rock_cliff': return '#5a5750';
+      // Meseta helada
+      case 'packed_snow': return alt ? '#e2edf5' : '#d6e6f2';
+      case 'glacial_ice': return '#7bc8e2';
+      case 'frost_rock': return '#5d6b79';
+      // Cienaga
+      case 'mud_moss': return alt ? '#2b3a27' : '#33442e';
+      case 'toxic_slime': return '#426b2b';
+      case 'deep_mire': return '#1c2219';
+      // Canon
+      case 'red_sandstone': return alt ? '#964b28' : '#884323';
+      case 'magma_fissure': return '#4a1e12';
+      case 'basalt_gravel': return '#50443e';
+      // Abismo
+      case 'dark_slate': return alt ? '#211d33' : '#1a162b';
+      case 'crystal_cluster': return '#3f37c9';
+      case 'abyssal_chasm': return '#0a0812';
+      // Nucleo
+      case 'precursor_alloy': return alt ? '#162834' : '#12212b';
+      case 'plasma_circuit': return '#0e3846';
+      case 'levitation_ring': return '#23395b';
+      // Taiga
+      case 'pine_humus': return alt ? '#2e4225' : '#273820';
+      case 'ancient_moss': return '#3b552f';
+      case 'root_cluster': return '#423326';
+      case 'boundary_cliff':
+        return ({ frost: '#6c7a88', forest: '#3a3d33', swamp: '#2f3529', canyon: '#6a3a22', caverns: '#2a2440', alien_core: '#16303d' } as Record<string, string>)[region.biomeType] ?? '#333333';
       default:
-        return { top: region.groundColor, leftFace: '#333333', rightFace: '#222222' };
+        return region.groundColor;
     }
   }
 }

@@ -5,13 +5,16 @@ import { IsometricGrid } from '../core/IsometricGrid';
 
 export type Facing = 'left' | 'right' | 'up' | 'down';
 
+/** El sprite se disena a 32x48 y se dibuja a esta escala: el personaje mide ~0.9 casillas de alto (36 px de 40) */
+const PLAYER_SCALE = 0.75;
+
 export class Player {
   public x: number = 0;
   public y: number = 0;
   public gx: number = 0;
   public gy: number = 0;
-  public readonly width: number = 32;
-  public readonly height: number = 48;
+  public readonly width: number = 32 * PLAYER_SCALE;
+  public readonly height: number = 48 * PLAYER_SCALE;
   public facing: Facing = 'down';
 
   private targetX: number = 0;
@@ -51,10 +54,12 @@ export class Player {
   }
 
   public draw(ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) {
-    const sx = this.x - cameraX;
-    const sy = this.y - cameraY;
-
     ctx.save();
+    // Se dibuja desde los pies (0, 0) y se escala; las coordenadas de abajo estan a tamano de diseno
+    ctx.translate(Math.round(this.x - cameraX), Math.round(this.y - cameraY));
+    ctx.scale(PLAYER_SCALE, PLAYER_SCALE);
+    const sx = 0;
+    const sy = 0;
 
     // Sombra en el suelo, anclada al centro de la casilla
     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';

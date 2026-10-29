@@ -59,20 +59,30 @@ describe('DecorLayer (visual scenery props)', () => {
     expect(seen.size).toBeGreaterThanOrEqual(7);
   });
 
-  it('only shows props on tiles the player has explored and skips them under fog', () => {
+  it('draws every prop in view, even in unexplored areas (fog darkens them, it does not hide them)', () => {
     const grid = buildGrid('beach');
     const decor = new DecorLayer();
     decor.generate(grid, REGIONS_DATA['beach'], new Set(), []);
     const bounds = { minX: -1e6, maxX: 1e6, minY: -1e6, maxY: 1e6 };
     const ctx = {} as CanvasRenderingContext2D;
 
-    const hidden: { y: number; draw: () => void }[] = [];
-    decor.collectRenderables(ctx, grid, 'beach', bounds, 0, 0, hidden);
-    expect(hidden.length).toBe(0); // everything unexplored
+    const unexplored: { y: number; draw: () => void }[] = [];
+    decor.collectRenderables(ctx, grid, 'beach', bounds, 0, 0, unexplored);
+    expect(unexplored.length).toBe(decor.props.length);
 
     grid.revealAll();
-    const shown: { y: number; draw: () => void }[] = [];
-    decor.collectRenderables(ctx, grid, 'beach', bounds, 0, 0, shown);
-    expect(shown.length).toBe(decor.props.length);
+    const explored: { y: number; draw: () => void }[] = [];
+    decor.collectRenderables(ctx, grid, 'beach', bounds, 0, 0, explored);
+    expect(explored.length).toBe(decor.props.length);
+  });
+
+  it('sorts props by the y of their base so they line up with the player standing on the same row', () => {
+    const grid = buildGrid('forest');
+    const decor = new DecorLayer();
+    decor.generate(grid, REGIONS_DATA['forest'], new Set(), []);
+    const bounds = { minX: -1e6, maxX: 1e6, minY: -1e6, maxY: 1e6 };
+    const out: { y: number; draw: () => void }[] = [];
+    decor.collectRenderables({} as CanvasRenderingContext2D, grid, 'forest', bounds, 0, 0, out);
+    expect(out.map(o => o.y)).toEqual(decor.props.map(p => p.y));
   });
 });

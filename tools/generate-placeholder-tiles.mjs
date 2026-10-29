@@ -1,11 +1,11 @@
 // generate-placeholder-tiles.mjs
-// Writes PLACEHOLDER ground-tile atlases for every biome to public/tiles/<biome>.png.
-// Layout must match TILE_ATLAS_MANIFEST in src/core/TileAtlas.ts
-// (80x56 cells, one row per terrain in the order listed below, 3 variant columns).
-// Replace any PNG with real art whenever it is ready - no code changes needed as long
-// as the layout stays the same.
+// Escribe atlas PROVISIONALES de suelo PLANO para cada bioma en public/tiles/<bioma>.png.
+// El diseno debe coincidir con TILE_ATLAS_MANIFEST (src/core/TileAtlas.ts):
+//   celdas de 80x40 (un rombo 2:1 sin grosor), una fila por terreno en el orden de abajo,
+//   3 columnas de variantes. Cualquier PNG se puede reemplazar por arte final sin tocar codigo
+//   mientras se respete ese diseno.
 //
-// Usage: node tools/generate-placeholder-tiles.mjs
+// Uso: node tools/generate-placeholder-tiles.mjs
 
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -13,67 +13,65 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const CELL_W = 80;
-const CELL_H = 56;
-const ANCHOR_Y = 20;
-const HALF_W = 40;
-const HALF_H = 20;
-const DEPTH = 16;
+const CELL_H = 40;
+const HALF_W = CELL_W / 2;
+const HALF_H = CELL_H / 2;
 const VARIANTS = 3;
+// El rombo se dibuja un poco mas grande que la celda para solaparse 1 px con sus vecinos:
+// asi no quedan lineas oscuras entre casillas (el piso se ve continuo).
+const OVERDRAW = 1.045;
 
 const hex = (h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255];
-// t(name, top, left, right, speckle, detail?) - colours match IsometricGrid.getTileColors
-const t = (name, top, left, right, speckle, detail = null) => ({
-  name, top: hex(top), left: hex(left), right: hex(right), speckle: hex(speckle), detail
-});
+// t(nombre, color base, color de motitas, detalle?)   detalle: { color, kind: 'lines' | 'dots' }
+const t = (name, top, speckle, detail = null) => ({ name, top: hex(top), speckle: hex(speckle), detail });
 
-// detail: null | { color, kind: 'lines' | 'dots' }  (glowing cracks, circuits, bubbles...)
 const BIOMES = {
   beach: [
-    t('dry_sand', 0xb0a880, 0x8e8663, 0x6d6749, 0xc9c196),
-    t('wet_sand', 0x9e9570, 0x787152, 0x5c563c, 0x7c7455),
-    t('coastal_pebbles', 0x7d7a71, 0x5f5d56, 0x45433d, 0xa09c90),
-    t('deep_water', 0x2b4353, 0x1d2e3a, 0x121d25, 0x4a6e84),
-    t('rock_cliff', 0x5a5750, 0x3f3d38, 0x2b2a27, 0x77736a)
+    t('dry_sand', 0xb0a880, 0xc9c196),
+    t('wet_sand', 0x9e9570, 0x7c7455),
+    t('coastal_pebbles', 0x7d7a71, 0xa09c90),
+    t('deep_water', 0x2b4353, 0x4a6e84),
+    t('rock_cliff', 0x5a5750, 0x77736a)
   ],
   frost: [
-    t('packed_snow', 0xd6e6f2, 0x9ab3c4, 0x758d9e, 0xffffff),
-    t('glacial_ice', 0x7bc8e2, 0x4e9ab3, 0x347083, 0xd8f4ff, { color: 0xffffff, kind: 'lines' }),
-    t('frost_rock', 0x5d6b79, 0x424d58, 0x2e363d, 0x8092a3),
-    t('boundary_cliff', 0x6c7a88, 0x4a5563, 0x333b45, 0x93a4b5)
+    t('packed_snow', 0xd6e6f2, 0xffffff),
+    t('glacial_ice', 0x7bc8e2, 0xd8f4ff, { color: 0xffffff, kind: 'lines' }),
+    t('frost_rock', 0x5d6b79, 0x8092a3),
+    t('boundary_cliff', 0x6c7a88, 0x93a4b5)
   ],
   forest: [
-    t('pine_humus', 0x273820, 0x1b2716, 0x121b0f, 0x3d5530),
-    t('ancient_moss', 0x3b552f, 0x27391f, 0x1a2715, 0x5d8a48),
-    t('root_cluster', 0x423326, 0x2f241b, 0x201812, 0x61503c),
-    t('boundary_cliff', 0x3a3d33, 0x272a22, 0x181a15, 0x565a4b)
+    t('pine_humus', 0x273820, 0x3d5530),
+    t('ancient_moss', 0x3b552f, 0x5d8a48),
+    t('root_cluster', 0x423326, 0x61503c),
+    t('boundary_cliff', 0x3a3d33, 0x565a4b)
   ],
   swamp: [
-    t('mud_moss', 0x2b3a27, 0x1d261a, 0x141a12, 0x4d6a34),
-    t('toxic_slime', 0x426b2b, 0x2d4c1c, 0x1f3513, 0x70e000, { color: 0x70e000, kind: 'dots' }),
-    t('deep_mire', 0x1c2219, 0x121610, 0x0a0d09, 0x2f3a2a),
-    t('boundary_cliff', 0x2f3529, 0x1e2319, 0x121510, 0x485240)
+    t('mud_moss', 0x2b3a27, 0x4d6a34),
+    t('toxic_slime', 0x426b2b, 0x70e000, { color: 0x70e000, kind: 'dots' }),
+    t('deep_mire', 0x1c2219, 0x2f3a2a),
+    t('boundary_cliff', 0x2f3529, 0x485240)
   ],
   canyon: [
-    t('red_sandstone', 0x884323, 0x6a341b, 0x4f2613, 0xb3673d),
-    t('magma_fissure', 0x4a1e12, 0x31140c, 0x220e08, 0x6d2f1c, { color: 0xff5400, kind: 'lines' }),
-    t('basalt_gravel', 0x50443e, 0x382f2b, 0x27201d, 0x7a6b63),
-    t('boundary_cliff', 0x6a3a22, 0x472515, 0x2f180d, 0x8e5535)
+    t('red_sandstone', 0x884323, 0xb3673d),
+    t('magma_fissure', 0x4a1e12, 0x6d2f1c, { color: 0xff5400, kind: 'lines' }),
+    t('basalt_gravel', 0x50443e, 0x7a6b63),
+    t('boundary_cliff', 0x6a3a22, 0x8e5535)
   ],
   caverns: [
-    t('dark_slate', 0x1a162b, 0x131020, 0x0d0b16, 0x322b52),
-    t('crystal_cluster', 0x3f37c9, 0x2c268f, 0x1f1b66, 0x4cc9f0, { color: 0x4cc9f0, kind: 'dots' }),
-    t('abyssal_chasm', 0x0a0812, 0x06050b, 0x030206, 0x18142a),
-    t('boundary_cliff', 0x2a2440, 0x1a1629, 0x100d1a, 0x463d6e)
+    t('dark_slate', 0x1a162b, 0x322b52),
+    t('crystal_cluster', 0x3f37c9, 0x4cc9f0, { color: 0x4cc9f0, kind: 'dots' }),
+    t('abyssal_chasm', 0x0a0812, 0x18142a),
+    t('boundary_cliff', 0x2a2440, 0x463d6e)
   ],
   alien_core: [
-    t('precursor_alloy', 0x12212b, 0x0d1820, 0x091117, 0x1f3a4a),
-    t('plasma_circuit', 0x0e3846, 0x092731, 0x061a21, 0x14566a, { color: 0x00f5d4, kind: 'lines' }),
-    t('levitation_ring', 0x23395b, 0x18273f, 0x101b2c, 0x3a5a8c, { color: 0x4cc9f0, kind: 'dots' }),
-    t('boundary_cliff', 0x16303d, 0x0f2029, 0x09151c, 0x2a5668)
+    t('precursor_alloy', 0x12212b, 0x1f3a4a),
+    t('plasma_circuit', 0x0e3846, 0x14566a, { color: 0x00f5d4, kind: 'lines' }),
+    t('levitation_ring', 0x23395b, 0x3a5a8c, { color: 0x4cc9f0, kind: 'dots' }),
+    t('boundary_cliff', 0x16303d, 0x2a5668)
   ]
 };
 
-// Small deterministic hash -> [0, 1)
+// Hash determinista -> [0, 1)
 function hash(a, b, c) {
   let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -83,7 +81,7 @@ function hash(a, b, c) {
 function renderAtlas(terrains) {
   const width = CELL_W * VARIANTS;
   const height = CELL_H * terrains.length;
-  const rgba = Buffer.alloc(width * height * 4); // fully transparent
+  const rgba = Buffer.alloc(width * height * 4); // todo transparente
 
   const put = (x, y, [r, g, b]) => {
     const i = (y * width + x) * 4;
@@ -98,23 +96,19 @@ function renderAtlas(terrains) {
       for (let cy = 0; cy < CELL_H; cy++) {
         for (let cx = 0; cx < CELL_W; cx++) {
           const dx = cx + 0.5 - HALF_W;
-          const dy = cy + 0.5 - ANCHOR_Y;
-          const nx = Math.abs(dx) / HALF_W;
-          const inTop = nx + Math.abs(dy) / HALF_H <= 1;
-          const bottomEdge = HALF_H * (1 - nx); // dy of the diamond's lower edge
-          const inFace = !inTop && nx < 1 && dy > bottomEdge && dy <= bottomEdge + DEPTH;
-          if (!inTop && !inFace) continue;
+          const dy = cy + 0.5 - HALF_H;
+          if (Math.abs(dx) / HALF_W + Math.abs(dy) / HALF_H > OVERDRAW) continue;
 
-          const base = inTop ? terrain.top : dx < 0 ? terrain.left : terrain.right;
+          // Textura suave: ruido por pixel, sin bordes ni luces marcadas en el contorno
           const noise = (hash(cx, cy, row * 7 + variant) - 0.5) * 14;
-          let color = base.map((v) => v + noise);
+          let color = terrain.top.map((v) => v + noise);
 
-          // Sparse lighter speckles on the top surface (grains, pebbles, ripples)
-          if (inTop && hash(cx + 91, cy + 17, row * 13 + variant * 5) > 0.93) {
+          // Motitas claras dispersas (granos, guijarros, ondas)
+          if (hash(cx + 91, cy + 17, row * 13 + variant * 5) > 0.93) {
             color = terrain.speckle.slice();
           }
-          // Glowing details: cracks / circuit traces (diagonal runs) or bubbles / gems (dots)
-          if (inTop && terrain.detail) {
+          // Detalles brillantes: grietas / circuitos (diagonales) o burbujas / gemas (puntos)
+          if (terrain.detail) {
             const d = hex(terrain.detail.color);
             if (terrain.detail.kind === 'lines') {
               const run = (cx + cy * 2 + variant * 7 + row * 3) % 19;
@@ -122,14 +116,6 @@ function renderAtlas(terrains) {
             } else if (hash(cx + 5, cy + 71, variant * 11 + row) > 0.965) {
               color = d;
             }
-          }
-          // Thin highlight along the top edges to read as a lit rim
-          if (inTop && nx + Math.abs(dy) / HALF_H > 0.9 && dy < 0) {
-            color = color.map((v) => v + 14);
-          }
-          // Dark seam where the top meets the side faces
-          if (inFace && dy <= bottomEdge + 1) {
-            color = color.map((v) => v - 22);
           }
 
           put(variant * CELL_W + cx, row * CELL_H + cy, color);
@@ -141,7 +127,7 @@ function renderAtlas(terrains) {
   return { rgba, width, height };
 }
 
-// ---- Minimal PNG encoder (RGBA, 8-bit) ----
+// ---- Codificador PNG minimo (RGBA, 8 bits) ----
 const crcTable = new Uint32Array(256).map((_, n) => {
   let c = n;
   for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
@@ -164,12 +150,12 @@ function encodePng({ rgba, width, height }) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 6; // colour type: RGBA
+  ihdr[8] = 8; // profundidad de bits
+  ihdr[9] = 6; // tipo de color: RGBA
   const stride = width * 4 + 1;
   const raw = Buffer.alloc(stride * height);
   for (let y = 0; y < height; y++) {
-    raw[y * stride] = 0; // filter: none
+    raw[y * stride] = 0; // filtro: ninguno
     rgba.copy(raw, y * stride + 1, y * width * 4, (y + 1) * width * 4);
   }
   return Buffer.concat([

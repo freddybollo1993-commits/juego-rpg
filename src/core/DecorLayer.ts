@@ -6,6 +6,7 @@
 
 import { IsometricGrid } from './IsometricGrid';
 import { propAtlas } from './PropAtlas';
+import { shadeForVisibility } from './Shade';
 import { RegionData } from '../data/regions';
 
 export interface DecorRule {
@@ -69,7 +70,7 @@ export interface DecorProp {
   gy: number;
   kind: string;
   variant: number; // 0..1 seed for the sprite variant
-  x: number;       // screen-space base position (tile centre, elevation applied)
+  x: number;       // screen-space base position (tile centre)
   y: number;
 }
 
@@ -118,7 +119,7 @@ export class DecorLayer {
           if (rule.terrains && !rule.terrains.includes(tile.terrainType)) continue;
           acc += rule.density;
           if (roll < acc) {
-            const iso = IsometricGrid.gridToScreen(gx, gy, tile.elevation);
+            const iso = IsometricGrid.gridToScreen(gx, gy);
             this.props.push({
               gx,
               gy,
@@ -135,8 +136,9 @@ export class DecorLayer {
   }
 
   /**
-   * Append the visible props to the shared depth-sorted render list.
-   * `sortOffset` must match how entities are sorted (feet = y + height / 2; the player is 48px tall).
+   * Agrega los props que caen en pantalla a la lista de dibujo ordenada por profundidad.
+   * Se ordenan por la y de su base (el centro de su casilla), igual que el jugador, que tambien
+   * se ancla por los pies. La niebla los oscurece en vez de ocultarlos, para que el mundo se vea continuo.
    */
   public collectRenderables(
     ctx: CanvasRenderingContext2D,
@@ -145,22 +147,16 @@ export class DecorLayer {
     bounds: { minX: number; maxX: number; minY: number; maxY: number },
     cameraX: number,
     cameraY: number,
-    out: { y: number; draw: () => void }[],
-    sortOffset: number = 24
+    out: { y: number; draw: () => void }[]
   ) {
     for (const prop of this.props) {
       if (prop.x < bounds.minX || prop.x > bounds.maxX || prop.y < bounds.minY || prop.y > bounds.maxY) continue;
-      const visibility = grid.tiles[prop.gx]?.[prop.gy]?.visibility ?? 0;
-      if (visibility === 0) continue; // fog of war: unexplored props stay hidden
+      const shade = shadeForVisibility(grid.tiles[prop.gx]?.[prop.gy]?.visibility ?? 0);
 
       out.push({
-        y: prop.y + sortOffset,
+        y: prop.y,
         draw: () => {
-          ctx.save();
-          ctx.imageSmoothingEnabled = false;
-          if (visibility === 1) ctx.globalAlpha = 0.45; // explored but out of sight
-          propAtlas.draw(ctx, biome, prop.kind, prop.variant, prop.x - cameraX, prop.y - cameraY);
-          ctx.restore();
+          propAtlas.draw(ctx, biome, prop.kind, prop.variant, prop.x - cameraX, prop.y - cameraY, shade);
         }
       });
     }
